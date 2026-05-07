@@ -1,0 +1,1794 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Student Animation Studio</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+        :root {
+            --bg:       #0d1117;
+            --surface:  #161b22;
+            --card:     #1c2230;
+            --card2:    #212836;
+            --border:   #2d3748;
+            --border2:  #3a4556;
+            --accent:   #d4a017;
+            --accent2:  #b8891a;
+            --danger:   #e5484d;
+            --danger2:  #c73d42;
+            --blue:     #4a90d9;
+            --blue2:    #3a7cc4;
+            --gold:     #d4a017;
+            --gold2:    #b8891a;
+            --text:     #e2e8f0;
+            --text2:    #94a3b8;
+            --text3:    #64748b;
+            --green-dim:#2a2010;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            overflow: hidden;
+            font-size: 13px;
+        }
+
+        /* ── Header ── */
+        header {
+            height: 48px;
+            padding: 0 20px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+            gap: 12px;
+        }
+        .logo {
+            font-weight: 800;
+            font-size: 13px;
+            letter-spacing: 2.5px;
+            text-transform: uppercase;
+            color: var(--text2);
+        }
+        .logo span { color: var(--accent); }
+        #status-msg {
+            font-size: 11px;
+            color: var(--text3);
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3px 12px;
+        }
+
+        /* ── Main layout: left (x-sheet) | center (viewport) | right (controls panel) ── */
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* ── X-Sheet (left) ── */
+        .x-sheet {
+            width: 240px;
+            background: var(--surface);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        .x-sheet-header {
+            padding: 8px 10px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        .x-sheet-hint {
+            font-size: 9px;
+            color: var(--text3);
+            text-align: center;
+            letter-spacing: 0.5px;
+        }
+        .x-sheet-content { flex: 1; overflow-y: auto; }
+        .x-sheet-content::-webkit-scrollbar { width: 4px; }
+        .x-sheet-content::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+        .x-row {
+            display: grid;
+            grid-template-columns: 18px 32px 1fr 46px;
+            border-bottom: 1px solid var(--border);
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.15s;
+            user-select: none;
+        }
+        .x-row:hover { background: var(--card); }
+        .x-row.dragging { opacity: 0.4; }
+        .x-row.drag-group-dragging { opacity: 0.4; background: #2a2a10; }
+        .x-row.over { border-top: 2px solid var(--blue); }
+        .x-row.selected { background: var(--green-dim); border-left: 3px solid var(--accent); }
+        .x-row.multi-selected { background: #1a243a; border-left: 3px solid var(--blue); }
+
+        .x-sel { display: flex; align-items: center; justify-content: center; }
+        .x-sel-dot { width: 7px; height: 7px; border-radius: 50%; border: 1px solid var(--border2); background: transparent; }
+        .x-row.selected .x-sel-dot { background: var(--accent); border-color: var(--accent); }
+        .x-row.multi-selected .x-sel-dot { background: var(--blue); border-color: var(--blue); }
+
+        .x-num {
+            padding: 7px 4px;
+            background: var(--card);
+            color: var(--text3);
+            text-align: center;
+            font-size: 10px;
+            font-family: monospace;
+            border-right: 1px solid var(--border);
+            pointer-events: none;
+        }
+        .x-data {
+            padding: 0 7px;
+            color: var(--text2);
+            white-space: nowrap;
+            overflow: hidden;
+            font-size: 10px;
+            pointer-events: none;
+        }
+        .x-hold {
+            margin: 3px 4px;
+            padding: 2px 3px;
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            color: var(--accent);
+            width: 38px;
+            text-align: center;
+            font-size: 10px;
+            border-radius: 4px;
+        }
+
+        /* ── Center: viewport + timeline strip ── */
+        .center-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            background: var(--bg);
+        }
+
+        .viewport-wrap {
+            flex: 1;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background: #080c10;
+        }
+
+        /* Camera stage label */
+        .viewport-label {
+            position: absolute;
+            top: 12px;
+            left: 14px;
+            font-size: 12px;
+            font-weight: 700;
+            color: var(--text);
+            background: rgba(13,17,23,0.75);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 4px 10px;
+            z-index: 20;
+            backdrop-filter: blur(4px);
+        }
+        .https-badge {
+            position: absolute;
+            top: 12px;
+            right: 14px;
+            font-size: 10px;
+            color: var(--text3);
+            background: rgba(13,17,23,0.75);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 3px 10px;
+            z-index: 20;
+            cursor: default;
+        }
+
+        #bg-layer, #webcam-canvas, #onion-skin, #playback-view {
+            position: absolute;
+            max-width: calc(100% - 16px);
+            max-height: calc(100% - 16px);
+            object-fit: contain;
+        }
+        #onion-skin { opacity: 0.4; pointer-events: none; z-index: 3; }
+        #playback-view { z-index: 4; display: none; background: #000; }
+        video { display: none; }
+        #overlay-canvas {
+            position: absolute; pointer-events: none; z-index: 10;
+            max-width: calc(100% - 16px); max-height: calc(100% - 16px); object-fit: contain;
+        }
+        #path-canvas {
+            position: absolute; z-index: 11; cursor: crosshair; display: none;
+            max-width: calc(100% - 16px); max-height: calc(100% - 16px); object-fit: contain;
+        }
+
+        /* ── Capture toolbar — centered under viewport ── */
+        .capture-toolbar {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 7px 12px;
+        }
+        .capture-toolbar-inner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .cap-group {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .cap-onion-group {
+            gap: 7px;
+        }
+        .cap-divider {
+            width: 1px;
+            height: 26px;
+            background: var(--border2);
+        }
+        .cap-btn {
+            padding: 7px 18px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            border: none;
+            transition: 0.12s;
+            letter-spacing: 0.3px;
+            white-space: nowrap;
+            font-family: inherit;
+        }
+        .cap-btn:active { transform: scale(0.97); }
+        .cap-capture {
+            background: var(--accent);
+            color: #1a1000;
+            border: 2px solid var(--accent2);
+            font-size: 13px;
+        }
+        .cap-capture:hover { background: var(--accent2); }
+        .cap-undo {
+            background: var(--card2);
+            color: var(--text2);
+            border: 1px solid var(--border2);
+        }
+        .cap-undo:hover { background: var(--card); color: var(--text); }
+        .cap-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+        }
+
+        /* ── Timeline panel (video-editor style) ── */
+        .timeline-panel {
+            background: var(--surface);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 6px 0 0;
+        }
+
+        /* Top bar: transport + timecode + FPS */
+        .timeline-topbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 0 10px 6px;
+            border-bottom: 1px solid var(--border);
+            flex-wrap: nowrap;
+        }
+        .tl-timecode {
+            font-family: monospace;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--accent);
+            background: var(--bg);
+            border: 1px solid var(--border2);
+            border-radius: 6px;
+            padding: 3px 9px;
+            letter-spacing: 1px;
+            white-space: nowrap;
+        }
+        .tl-spacer { flex: 1; }
+        .fps-row {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 11px;
+            color: var(--text2);
+            white-space: nowrap;
+        }
+        .fps-row strong { color: var(--text); min-width: 18px; text-align: center; }
+        .fps-row input[type=range] { width: 60px; accent-color: var(--accent); }
+        .tl-framecount { font-size: 11px; color: var(--text3); white-space: nowrap; }
+
+        /* Track wrap: ruler + frame track, scrolls horizontally together */
+        .tl-track-wrap {
+            position: relative;
+            overflow-x: auto;
+            overflow-y: hidden;
+            flex-shrink: 0;
+            cursor: default;
+        }
+        .tl-track-wrap::-webkit-scrollbar { height: 5px; }
+        .tl-track-wrap::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+        /* Ruler canvas — sits above the frame track */
+        .tl-ruler {
+            display: block;
+            height: 22px;
+            background: var(--card);
+            border-bottom: 1px solid var(--border2);
+            cursor: pointer;
+        }
+
+        /* Frame track row */
+        .tl-track {
+            position: relative;
+            display: flex;
+            align-items: stretch;
+            height: 72px;
+            background: var(--bg);
+            min-width: 100%;
+        }
+
+        /* Each frame cell: width proportional to hold value */
+        .tl-cell {
+            position: relative;
+            flex-shrink: 0;
+            border-right: 1px solid var(--border);
+            overflow: hidden;
+            cursor: pointer;
+            transition: filter 0.1s;
+            box-sizing: border-box;
+        }
+        .tl-cell:hover { filter: brightness(1.15); }
+        .tl-cell.active-cell { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 2; }
+        .tl-cell.multi-cell  { outline: 2px solid var(--blue);   outline-offset: -2px; z-index: 2; }
+
+        .tl-cell img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+            pointer-events: none;
+        }
+
+        /* Frame number label on cell */
+        .tl-cell-label {
+            position: absolute;
+            bottom: 2px;
+            left: 3px;
+            font-size: 9px;
+            font-family: monospace;
+            color: rgba(255,255,255,0.75);
+            text-shadow: 0 1px 2px #000;
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        /* Vertical playhead line */
+        .tl-playhead {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: var(--danger);
+            z-index: 10;
+            pointer-events: none;
+            left: 0;
+            box-shadow: 0 0 4px var(--danger);
+        }
+        .tl-playhead::before {
+            content: '';
+            position: absolute;
+            top: -6px;
+            left: -5px;
+            width: 0;
+            height: 0;
+            border-left: 6px solid transparent;
+            border-right: 6px solid transparent;
+            border-top: 8px solid var(--danger);
+        }
+
+        /* Playback controls (same style as before, now in topbar) */
+        .playback-controls { display: flex; align-items: center; gap: 4px; }
+        .pb-btn {
+            padding: 4px 7px;
+            background: var(--card);
+            border: 1px solid var(--border2);
+            color: var(--text2);
+            border-radius: 7px;
+            font-size: 14px;
+            line-height: 1;
+            cursor: pointer;
+            transition: 0.12s;
+            min-width: 30px;
+            text-align: center;
+        }
+        .pb-btn:hover { background: var(--card2); color: var(--text); }
+        .pb-edge { color: var(--text3); font-size: 12px; }
+        .pb-step { color: var(--blue); border-color: #1e3a5a; font-size: 12px; }
+        .pb-step:hover { background: #111e30; border-color: var(--blue); }
+        .pb-play { color: var(--accent); border-color: #1a4030; font-size: 17px; font-weight: 900; }
+        .pb-play:hover { background: var(--green-dim); border-color: var(--accent); }
+        .pb-pause { color: var(--gold); border-color: #3a3010; display: none; }
+        .pb-pause:hover { background: #221f00; border-color: var(--gold); }
+        .pb-stop { color: var(--danger); border-color: #3a1015; }
+        .pb-stop:hover { background: #2a1012; border-color: var(--danger); }
+        .pb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+        .pb-frame-display { font-family: monospace; font-size: 11px; color: var(--text3); min-width: 52px; text-align: center; }
+
+        /* ── Right panel (tabbed) ── */
+        .right-panel {
+            width: 260px;
+            background: var(--surface);
+            border-left: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+
+        /* Stats pinned above tabs */
+        .rp-stats-pinned {
+            padding: 10px 10px 8px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+
+        /* Tab bar */
+        .tab-bar {
+            display: flex;
+            background: var(--card);
+            border-bottom: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 9px 6px;
+            background: transparent;
+            border: none;
+            border-bottom: 2px solid transparent;
+            color: var(--text3);
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.15s;
+            letter-spacing: 0.3px;
+            font-family: inherit;
+        }
+        .tab-btn:hover { color: var(--text2); background: var(--card2); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+
+        /* Tab panes */
+        .tab-pane {
+            display: none;
+            flex-direction: column;
+            overflow-y: auto;
+            flex: 1;
+        }
+        .tab-pane::-webkit-scrollbar { width: 4px; }
+        .tab-pane::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+        .tab-pane.active { display: flex; }
+
+        /* Cards inside right panel */
+        .rp-card {
+            margin: 10px 10px 0;
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+        }
+        .rp-card:last-child { margin-bottom: 10px; }
+
+        .rp-card-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: var(--text);
+            padding: 10px 14px 8px;
+            border-bottom: 1px solid var(--border);
+            letter-spacing: 0.3px;
+        }
+        .rp-card-body { padding: 10px 14px; }
+
+        /* Stats row (like the reference's 0 frames / 0s / selected) */
+        .stats-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+        .stat-box {
+            background: var(--card2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 10px;
+        }
+        .stat-value { font-size: 20px; font-weight: 800; color: var(--text); line-height: 1; }
+        .stat-label { font-size: 9px; color: var(--text3); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+
+        /* Big action buttons */
+        .big-btn {
+            width: 100%;
+            padding: 11px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: 0.12s;
+            letter-spacing: 0.3px;
+        }
+        .big-btn:active { transform: scale(0.98); }
+        .btn-camera { background: var(--blue); color: white; border: 2px solid var(--blue2); }
+        .btn-camera:hover { background: var(--blue2); }
+        .btn-capture { background: var(--accent); color: #1a1000; border: 2px solid var(--accent2); }
+        .btn-capture:hover { background: var(--accent2); }
+        .btn-danger-big { background: var(--danger); color: white; border: 2px solid var(--danger2); }
+        .btn-danger-big:hover { background: var(--danger2); }
+
+        /* Small control buttons */
+        .ctrl-btn {
+            padding: 7px 10px;
+            background: var(--card2);
+            border: 1px solid var(--border2);
+            color: var(--text2);
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.12s;
+            white-space: nowrap;
+        }
+        .ctrl-btn:hover { background: var(--card); border-color: var(--text3); color: var(--text); }
+        .ctrl-btn.active { background: var(--green-dim); border-color: var(--accent); color: var(--accent); }
+        .ctrl-btn.danger { border-color: #3a1015; color: var(--danger); }
+        .ctrl-btn.danger:hover { background: #2a1012; }
+        .ctrl-btn.gold { background: var(--gold); color: #1a1000; border-color: var(--gold2); font-weight: 700; }
+        .ctrl-btn.gold:hover { background: var(--gold2); }
+
+        /* 2-col button grid */
+        .btn-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+
+        /* Form controls */
+        .field-label {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--text3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: block;
+            margin-bottom: 4px;
+        }
+        select, input[type="text"], input[type="number"] {
+            background: var(--card2);
+            border: 1px solid var(--border2);
+            color: var(--text);
+            padding: 6px 9px;
+            font-size: 12px;
+            border-radius: 8px;
+            width: 100%;
+            font-family: inherit;
+        }
+        select:focus, input:focus { outline: 1px solid var(--accent); }
+        input[type=range] { accent-color: var(--accent); width: 100%; }
+        input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
+
+        /* Color picker inline */
+        input[type="color"] { width: 26px; height: 26px; border: 1px solid var(--border2); border-radius: 6px; padding: 1px; background: var(--card2); cursor: pointer; }
+
+        /* Row utilities */
+        .flex-row { display: flex; align-items: center; gap: 8px; }
+        .flex-row-sb { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+        .gap-4 { gap: 4px; }
+        .mt-6 { margin-top: 6px; }
+        .mt-8 { margin-top: 8px; }
+        .w-full { width: 100%; }
+
+        /* Overlay grid — 2 columns, compact buttons */
+        .overlay-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+        }
+        .overlay-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+            padding: 6px 4px;
+            background: var(--card2);
+            border: 1px solid var(--border);
+            color: var(--text2);
+            border-radius: 7px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.12s;
+            white-space: nowrap;
+        }
+        .overlay-btn:hover { background: var(--card); border-color: var(--border2); color: var(--text); }
+        .overlay-btn.active { background: var(--green-dim); border-color: var(--accent); color: var(--accent); }
+        .overlay-btn .icon { font-size: 12px; }
+
+        /* Path tools */
+        .path-tools { display: none; flex-direction: column; gap: 5px; padding-top: 6px; margin-top: 2px; border-top: 1px solid var(--border); }
+        .path-tools.visible { display: flex; }
+        .color-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+        .path-color-btn { width: 22px; height: 22px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; transition: 0.12s; flex-shrink: 0; }
+        .path-color-btn.selected { border-color: white; }
+        .size-row { display: flex; gap: 4px; }
+        .size-btn { flex: 1; padding: 4px 2px; background: var(--card2); border: 1px solid var(--border); color: var(--text3); border-radius: 5px; font-size: 10px; font-weight: 600; cursor: pointer; text-align: center; }
+        .size-btn.active { background: var(--green-dim); border-color: var(--accent); color: var(--accent); }
+
+        /* Multi-select bar */
+        .multisel-bar { display: none; background: #111e30; border: 1px solid var(--blue); border-radius: 6px; padding: 4px 8px; font-size: 10px; color: #7ec8e3; align-items: center; justify-content: space-between; gap: 6px; }
+        .multisel-bar.visible { display: flex; }
+        .multisel-bar button { padding: 2px 7px; font-size: 10px; background: #162035; border: 1px solid var(--blue); color: #7ec8e3; border-radius: 5px; cursor: pointer; }
+
+        /* Import scan button */
+        .btn-import-scan {
+            background: var(--green-dim);
+            border: 1px solid var(--accent);
+            color: var(--accent);
+            padding: 5px 8px;
+            border-radius: 6px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            width: 100%;
+            text-align: center;
+            letter-spacing: 0.3px;
+        }
+        .btn-import-scan:hover { background: #1f4030; }
+
+        kbd {
+            background: var(--bg);
+            color: var(--text3);
+            padding: 1px 5px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 10px;
+            border: 1px solid var(--border2);
+        }
+
+        /* Save/Export panel pinned to bottom of x-sheet */
+        .save-export-panel {
+            padding: 10px;
+            background: var(--card);
+            border-top: 1px solid var(--border);
+            flex-shrink: 0;
+        }
+        .save-export-title {
+            font-size: 10px;
+            font-weight: 700;
+            color: var(--text2);
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 8px;
+        }
+
+        /* Scrollbar global */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">FALCON <span>ANIMATION STUDIO</span></div>
+    <div id="status-msg">Initializing...</div>
+</header>
+
+<div class="main-layout">
+
+    <!-- ── X-Sheet (left column) ── -->
+    <div class="x-sheet">
+        <div class="x-sheet-header">
+            <div class="x-sheet-hint">CLICK · SHIFT+CLICK RANGE · CTRL+CLICK TOGGLE · DRAG TO MOVE</div>
+            <div class="multisel-bar" id="multisel-bar">
+                <span id="multisel-count">0 selected</span>
+                <button onclick="clearMultiSelect()">&#x2715; Clear</button>
+            </div>
+            <button class="btn-import-scan" onclick="document.getElementById('scan-upload').click()">&#xFF0B; IMPORT SCANS</button>
+            <input type="file" id="scan-upload" accept="image/*" multiple style="display:none;" onchange="importScans(event)">
+        </div>
+        <div class="x-sheet-content" id="x-sheet-list"></div>
+
+        <!-- Save / Export — pinned to bottom of left column -->
+        <div class="save-export-panel">
+            <div class="save-export-title">Save / Export</div>
+            <div class="flex-row" style="gap:5px; margin-bottom:6px;">
+                <div style="flex:1;">
+                    <label class="field-label">Project</label>
+                    <input type="text" id="meta-project" value="MyFilm" placeholder="Project" style="font-size:11px; padding:4px 7px;">
+                </div>
+                <div style="width:40px;">
+                    <label class="field-label">Sc</label>
+                    <input type="text" id="meta-scene" value="01" placeholder="Sc" style="font-size:11px; padding:4px 5px;">
+                </div>
+                <div style="width:40px;">
+                    <label class="field-label">Tk</label>
+                    <input type="text" id="meta-take" value="01" placeholder="Tk" style="font-size:11px; padding:4px 5px;">
+                </div>
+            </div>
+            <div class="btn-grid-2" style="gap:5px; margin-bottom:5px;">
+                <button class="ctrl-btn" onclick="downloadJSON()" style="font-size:10px; padding:6px 4px;">Save Project</button>
+                <button class="ctrl-btn" onclick="document.getElementById('json-upload').click()" style="font-size:10px; padding:6px 4px;">Load Project</button>
+            </div>
+            <div class="btn-grid-2" style="gap:5px;">
+                <button class="ctrl-btn" onclick="exportImages()" style="font-size:10px; padding:6px 4px;">Export Images</button>
+                <button class="ctrl-btn gold" onclick="exportVideo()" style="font-size:10px; padding:6px 4px;">Export Video</button>
+            </div>
+            <input type="file" id="json-upload" accept=".json" style="display:none;" onchange="uploadJSON(event)">
+        </div>
+    </div><!-- /x-sheet -->
+
+    <!-- ── Center: viewport + timeline ── -->
+    <div class="center-col">
+        <div class="viewport-wrap" id="viewport">
+            <div class="viewport-label">Camera Stage</div>
+            <div class="https-badge" id="https-badge">Use localhost or HTTPS</div>
+            <img id="bg-layer" src="">
+            <video id="webcam" autoplay playsinline></video>
+            <canvas id="webcam-canvas"></canvas>
+            <canvas id="onion-skin"></canvas>
+            <canvas id="playback-view"></canvas>
+            <canvas id="overlay-canvas"></canvas>
+            <canvas id="path-canvas"></canvas>
+        </div>
+
+        <!-- Capture controls — centered under the stage -->
+        <div class="capture-toolbar">
+            <div class="capture-toolbar-inner">
+                <div class="cap-group">
+                    <button class="cap-btn cap-capture" onclick="captureFrame()">&#x23FA; CAPTURE <kbd>SPACE</kbd></button>
+                    <button class="cap-btn cap-undo" onclick="deleteLastFrame()">&#x21A9; UNDO</button>
+                </div>
+                <div class="cap-divider"></div>
+                <div class="cap-group cap-onion-group">
+                    <label class="cap-label">Onion Skin</label>
+                    <input type="range" id="onion-slider" min="0" max="100" value="40"
+                        style="width:90px; accent-color:var(--accent);"
+                        oninput="onionCanvas.style.opacity = this.value/100">
+                    <span class="cap-label" id="onion-val">40%</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Timeline panel -->
+        <div class="timeline-panel">
+
+            <!-- Top bar: transport controls + FPS + timecode -->
+            <div class="timeline-topbar">
+                <div class="playback-controls">
+                    <button class="pb-btn pb-edge" title="Go to Start (Home)" onclick="pbGoStart()">&#x23EE;</button>
+                    <button class="pb-btn pb-step" title="Step Back (&#x2190;)" onclick="pbStepBack()">&#x23EA;</button>
+                    <button class="pb-btn pb-play"  id="pb-play-btn"  title="Play (P)"  onclick="pbPlay()">&#x23F5;</button>
+                    <button class="pb-btn pb-pause" id="pb-pause-btn" title="Pause"      onclick="pbPause()">&#x23F8;</button>
+                    <button class="pb-btn pb-stop"  title="Stop"      onclick="pbStop()">&#x23F9;</button>
+                    <button class="pb-btn pb-step" title="Step Forward (&#x2192;)" onclick="pbStepForward()">&#x23E9;</button>
+                    <button class="pb-btn pb-edge" title="Go to End (End)" onclick="pbGoEnd()">&#x23ED;</button>
+                </div>
+                <div class="tl-timecode" id="tl-timecode">00:00:00</div>
+                <div class="pb-frame-display" id="pb-frame-display">&#x2014; / &#x2014;</div>
+                <div class="tl-spacer"></div>
+                <div class="fps-row">
+                    <span>FPS</span>
+                    <strong id="fps-val">12</strong>
+                    <input type="range" id="fps-slider" min="1" max="30" value="12">
+                </div>
+                <div class="tl-framecount"><span id="frame-count">0</span> fr</div>
+            </div>
+
+            <!-- The actual timeline track area -->
+            <div class="tl-track-wrap" id="tl-track-wrap">
+                <!-- Ruler drawn here by JS -->
+                <canvas class="tl-ruler" id="tl-ruler"></canvas>
+                <!-- Frame track: thumbnails sized by hold duration -->
+                <div class="tl-track" id="tl-track">
+                    <!-- playhead -->
+                    <div class="tl-playhead" id="tl-playhead"></div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- ── Right panel (tabbed) ── -->
+    <div class="right-panel">
+
+        <!-- Stats — always visible, pinned above tabs -->
+        <div class="rp-stats-pinned">
+            <div class="stats-row">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-frames">0</div>
+                    <div class="stat-label">frames</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-duration">0s</div>
+                    <div class="stat-label">duration</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-selected">&#x2014;</div>
+                    <div class="stat-label">selected</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab bar -->
+        <div class="tab-bar">
+            <button class="tab-btn active" id="tab-tools-btn"    onclick="switchTab('tools')">&#x2692; Tools</button>
+            <button class="tab-btn"        id="tab-settings-btn" onclick="switchTab('settings')">&#x2699; Settings</button>
+        </div>
+
+        <!-- Tab: Tools (Overlays + Animation Path) -->
+        <div class="tab-pane active" id="tab-tools">
+
+            <div class="rp-card">
+                <div class="rp-card-title">Overlays</div>
+                <div class="rp-card-body">
+                    <div class="overlay-grid">
+                        <button class="overlay-btn" id="btn-grid"   onclick="toggleOverlay('grid')">  <span class="icon">&#x229E;</span> Grid   </button>
+                        <button class="overlay-btn" id="btn-thirds" onclick="toggleOverlay('thirds')"><span class="icon">&#x25A6;</span> Thirds </button>
+                        <button class="overlay-btn" id="btn-radial" onclick="toggleOverlay('radial')"><span class="icon">&#x25CE;</span> Radial </button>
+                    </div>
+                    <div class="mt-6">
+                        <label class="field-label">Opacity</label>
+                        <input type="range" id="overlay-opacity" min="10" max="100" value="50" oninput="updateOverlayOpacity(this.value)">
+                    </div>
+                </div>
+            </div>
+
+            <div class="rp-card">
+                <div class="rp-card-title">Animation Path</div>
+                <div class="rp-card-body" style="display:flex; flex-direction:column; gap:6px;">
+                    <button class="overlay-btn" id="btn-path" onclick="togglePathMode()">
+                        <span class="icon">&#x270F;</span> Draw Path
+                    </button>
+                    <div class="path-tools" id="path-tools">
+                        <label class="field-label">Color</label>
+                        <div class="color-row">
+                            <div class="path-color-btn selected" style="background:#ff4757;" data-color="#ff4757" onclick="setPathColor(this)"></div>
+                            <div class="path-color-btn" style="background:#3ecf8e;" data-color="#3ecf8e" onclick="setPathColor(this)"></div>
+                            <div class="path-color-btn" style="background:#4a90d9;" data-color="#4a90d9" onclick="setPathColor(this)"></div>
+                            <div class="path-color-btn" style="background:#ffd700;" data-color="#ffd700" onclick="setPathColor(this)"></div>
+                            <div class="path-color-btn" style="background:#ffffff;" data-color="#ffffff" onclick="setPathColor(this)"></div>
+                        </div>
+                        <label class="field-label mt-6">Brush Size</label>
+                        <div class="size-row">
+                            <div class="size-btn active" data-size="2"  onclick="setPathSize(this)">S</div>
+                            <div class="size-btn"         data-size="5"  onclick="setPathSize(this)">M</div>
+                            <div class="size-btn"         data-size="10" onclick="setPathSize(this)">L</div>
+                            <div class="size-btn"         data-size="18" onclick="setPathSize(this)">XL</div>
+                        </div>
+                        <label class="field-label mt-6">Mode</label>
+                        <div class="size-row">
+                            <div class="size-btn active" id="mode-draw"  onclick="setDrawMode('draw')">Draw</div>
+                            <div class="size-btn"         id="mode-erase" onclick="setDrawMode('erase')">Erase</div>
+                        </div>
+                        <button class="ctrl-btn danger w-full mt-6" onclick="clearPathCanvas()">&#x2715; Clear Path</button>
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /tab-tools -->
+
+        <!-- Tab: Settings (Chroma + Onion Skin + Camera) -->
+        <div class="tab-pane" id="tab-settings">
+
+            <div class="rp-card">
+                <div class="rp-card-title">Camera</div>
+                <div class="rp-card-body" style="display:flex; flex-direction:column; gap:8px;">
+                    <div>
+                        <label class="field-label">Active Camera</label>
+                        <select id="cam-select" onchange="switchCamera(this.value)"></select>
+                    </div>
+                    <button class="big-btn btn-camera" onclick="startCamera()">Start Camera</button>
+                    <button class="ctrl-btn danger" onclick="clearProject()">New Project</button>
+                </div>
+            </div>
+
+            <div class="rp-card">
+                <div class="rp-card-title">Chroma &amp; Onion Skin</div>
+                <div class="rp-card-body" style="display:flex; flex-direction:column; gap:8px;">
+                    <div class="flex-row-sb">
+                        <div class="flex-row">
+                            <input type="checkbox" id="chroma-toggle">
+                            <label class="field-label" style="margin:0;">Chroma Key</label>
+                        </div>
+                        <input type="color" id="key-color" value="#00ff00" title="Key color">
+                    </div>
+                    <div>
+                        <label class="field-label">Chroma Similarity</label>
+                        <input type="range" id="chroma-sim" min="0" max="200" value="80">
+                    </div>
+                    <div>
+                        <label class="field-label">Background Image</label>
+                        <div style="display:flex; align-items:center; gap:5px; margin-bottom:4px;">
+                            <span id="bg-name" style="font-size:10px; color:var(--text3); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">None</span>
+                            <button class="ctrl-btn danger" id="bg-clear-btn" onclick="clearBackground()" style="padding:3px 7px; font-size:10px; display:none;">&#x2715;</button>
+                        </div>
+                        <button class="ctrl-btn w-full" onclick="document.getElementById('bg-upload').click()" style="font-size:10px; padding:6px;">&#x1F5BC; Load Background</button>
+                        <input type="file" id="bg-upload" accept="image/*" style="display:none;">
+                    </div>
+                </div>
+            </div>
+
+        </div><!-- /tab-settings -->
+
+    </div><!-- /right-panel -->
+</div>
+
+<script>
+    // ── DOM refs ──
+    const video          = document.getElementById('webcam');
+    const camCanvas      = document.getElementById('webcam-canvas');
+    const onionCanvas    = document.getElementById('onion-skin');
+    const playbackCanvas = document.getElementById('playback-view');
+    const bgLayer        = document.getElementById('bg-layer');
+    const xSheetList     = document.getElementById('x-sheet-list');
+    const camSelect      = document.getElementById('cam-select');
+    const overlayCanvas  = document.getElementById('overlay-canvas');
+    const pathCanvas     = document.getElementById('path-canvas');
+
+    const camCtx     = camCanvas.getContext('2d', { willReadFrequently: true });
+    const onionCtx   = onionCanvas.getContext('2d');
+    const playCtx    = playbackCanvas.getContext('2d');
+    const overlayCtx = overlayCanvas.getContext('2d');
+    const pathCtx    = pathCanvas.getContext('2d');
+
+    // ── App state ──
+    let frames         = [];
+    let isPlaying      = false;
+    let playTimeout    = null;
+    let currentStream  = null;
+    let dragSrcEl      = null;
+
+    let currentFrameIdx = -1;
+    let playheadIdx     = 0;
+
+    let selectedIndices  = new Set();
+    let lastClickedIdx   = -1;
+    let isDraggingGroup  = false;
+
+    let overlayMode    = null;
+    let overlayOpacity = 0.5;
+
+    let chromaLoopRunning = false;
+    let pathModeActive = false;
+    let isDrawing      = false;
+    let pathColor      = '#ff4757';
+    let pathSize       = 2;
+    let drawMode       = 'draw';
+    let lastX = 0, lastY = 0;
+
+    // ── Tab switching ──
+    function switchTab(name) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.getElementById(`tab-${name}-btn`).classList.add('active');
+        document.getElementById(`tab-${name}`).classList.add('active');
+    }
+
+    // ── Sync overlay/path canvases ──
+    function syncOverlayCanvases() {
+        const w = camCanvas.width  || 1280;
+        const h = camCanvas.height || 720;
+        overlayCanvas.width  = pathCanvas.width  = w;
+        overlayCanvas.height = pathCanvas.height = h;
+        drawOverlay();
+    }
+
+    // ── Camera init ──
+    async function init() {
+        try {
+            const devices = await navigator.mediaDevices.enumerateDevices();
+            const vDevs   = devices.filter(d => d.kind === 'videoinput');
+            camSelect.innerHTML = '';
+            vDevs.forEach((d, i) => {
+                const opt = document.createElement('option');
+                opt.value = d.deviceId;
+                opt.text  = d.label || `Camera ${i + 1}`;
+                camSelect.appendChild(opt);
+            });
+            if (vDevs.length > 0) switchCamera(vDevs[0].deviceId);
+        } catch (err) {
+            document.getElementById('status-msg').textContent = 'Camera access blocked — use localhost or HTTPS';
+        }
+    }
+
+    function startCamera() {
+        const sel = document.getElementById('cam-select');
+        if (sel.value) switchCamera(sel.value);
+        else init();
+    }
+
+    async function switchCamera(deviceId) {
+        if (camSelect) camSelect.value = deviceId;
+        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+        try {
+            currentStream = await navigator.mediaDevices.getUserMedia(
+                { video: { deviceId: { exact: deviceId }, width: 1920, height: 1080 } }
+            );
+            video.srcObject = currentStream;
+            video.onloadedmetadata = () => {
+                camCanvas.width = onionCanvas.width = playbackCanvas.width  = video.videoWidth;
+                camCanvas.height= onionCanvas.height= playbackCanvas.height = video.videoHeight;
+                syncOverlayCanvases();
+                if (!chromaLoopRunning) { chromaLoopRunning = true; processChroma(); }
+                document.getElementById('status-msg').textContent =
+                    `Camera: ${video.videoWidth}×${video.videoHeight}`;
+            };
+        } catch {
+            document.getElementById('status-msg').textContent = 'Could not switch camera.';
+        }
+    }
+
+    function processChroma() {
+        if (!isPlaying) {
+            camCtx.drawImage(video, 0, 0, camCanvas.width, camCanvas.height);
+            if (document.getElementById('chroma-toggle').checked) {
+                const imgData = camCtx.getImageData(0, 0, camCanvas.width, camCanvas.height);
+                const data = imgData.data;
+                const key  = hexToRgb(document.getElementById('key-color').value);
+                const thr  = document.getElementById('chroma-sim').value;
+                for (let i = 0; i < data.length; i += 4) {
+                    const dist = Math.sqrt(
+                        (data[i]-key.r)**2 + (data[i+1]-key.g)**2 + (data[i+2]-key.b)**2
+                    );
+                    if (dist < thr) data[i+3] = 0;
+                }
+                camCtx.putImageData(imgData, 0, 0);
+            }
+        }
+        requestAnimationFrame(processChroma);
+    }
+
+    function hexToRgb(hex) {
+        return {
+            r: parseInt(hex.slice(1,3),16),
+            g: parseInt(hex.slice(3,5),16),
+            b: parseInt(hex.slice(5,7),16)
+        };
+    }
+
+    // ── Capture from camera ──
+    function captureFrame() {
+        if (isPlaying) return;
+        const cap = document.createElement('canvas');
+        cap.width  = camCanvas.width  || 1280;
+        cap.height = camCanvas.height || 720;
+        const ctx  = cap.getContext('2d');
+        if (bgLayer.src && bgLayer.naturalWidth > 0) ctx.drawImage(bgLayer, 0, 0, cap.width, cap.height);
+        ctx.drawImage(camCanvas, 0, 0);
+        addFrame(cap.toDataURL('image/jpeg', 0.85));
+    }
+
+    function addFrame(dataURL) {
+        frames.push({
+            data:  dataURL,
+            hold:  1,
+            scene: document.getElementById('meta-scene').value,
+            take:  document.getElementById('meta-take').value
+        });
+        renderUI();
+        scrubTo(frames.length - 1);
+    }
+
+    // ── Import scanned images ──
+    function importScans(e) {
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
+
+        const targetW = camCanvas.width  || 1920;
+        const targetH = camCanvas.height || 1080;
+
+        files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
+
+        const results  = new Array(files.length).fill(null);
+        let   resolved = 0;
+
+        files.forEach((file, idx) => {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                const img = new Image();
+                img.onload = () => {
+                    const cap = document.createElement('canvas');
+                    cap.width  = targetW; cap.height = targetH;
+                    const ctx  = cap.getContext('2d');
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(0, 0, targetW, targetH);
+                    const scale = Math.min(targetW / img.width, targetH / img.height);
+                    const dw = img.width * scale, dh = img.height * scale;
+                    ctx.drawImage(img, (targetW-dw)/2, (targetH-dh)/2, dw, dh);
+                    results[idx] = cap.toDataURL('image/jpeg', 0.90);
+                    resolved++;
+                    if (resolved === files.length) {
+                        const scene = document.getElementById('meta-scene').value;
+                        const take  = document.getElementById('meta-take').value;
+                        results.forEach(data => frames.push({ data, hold: 1, scene, take }));
+                        renderUI();
+                        scrubTo(frames.length - 1);
+                        document.getElementById('status-msg').textContent =
+                            `Imported ${files.length} scan${files.length !== 1 ? 's' : ''}`;
+                    }
+                };
+                img.src = ev.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+        e.target.value = '';
+    }
+
+    // ── Timeline constants ──
+    const PX_PER_HOLD = 48;   // pixels per hold unit — minimum cell width per frame
+    const RULER_H     = 22;   // must match CSS .tl-ruler height
+
+    // ── Render X-Sheet + Timeline ──
+    function renderUI() {
+        const tlTrack = document.getElementById('tl-track');
+        const playhead = document.getElementById('tl-playhead');
+        // Detach playhead before clearing so it isn't destroyed
+        if (playhead && playhead.parentNode === tlTrack) tlTrack.removeChild(playhead);
+
+        tlTrack.innerHTML = '';
+        xSheetList.innerHTML = '';
+
+        const fps = parseInt(document.getElementById('fps-slider').value);
+        let runningHold = 0;
+
+        frames.forEach((frame, idx) => {
+            const holdVal = parseInt(frame.hold) || 1;
+            const cellW   = holdVal * PX_PER_HOLD;
+
+            // ── Timeline cell ──
+            const cell = document.createElement('div');
+            cell.className        = 'tl-cell';
+            cell.id               = `cell-${idx}`;
+            cell.style.width      = `${cellW}px`;
+            cell.dataset.index    = idx;
+
+            if (idx === currentFrameIdx && selectedIndices.size === 0) cell.classList.add('active-cell');
+            if (selectedIndices.has(idx)) cell.classList.add('multi-cell');
+
+            const img = document.createElement('img');
+            img.src = frame.data;
+            cell.appendChild(img);
+
+            const lbl = document.createElement('div');
+            lbl.className   = 'tl-cell-label';
+            lbl.textContent = `${idx + 1}`;
+            cell.appendChild(lbl);
+
+            cell.addEventListener('click', ev => handleRowClick(idx, ev));
+            tlTrack.appendChild(cell);
+
+            // ── X-Sheet row ──
+            const row = document.createElement('div');
+            row.className     = 'x-row';
+            row.draggable     = true;
+            row.dataset.index = idx;
+            if (selectedIndices.has(idx)) row.classList.add('multi-selected');
+            else if (idx === currentFrameIdx && selectedIndices.size === 0) row.classList.add('selected');
+
+            row.innerHTML = `
+                <div class="x-sel"><div class="x-sel-dot"></div></div>
+                <div class="x-num">${idx + 1}</div>
+                <div class="x-data">S${frame.scene}:T${frame.take} (${(runningHold/fps).toFixed(2)}s)</div>
+                <input type="number" class="x-hold" value="${frame.hold}" min="1"
+                    onchange="updateHold(${idx}, this.value)" onclick="event.stopPropagation()">
+            `;
+
+            row.addEventListener('click',     ev => handleRowClick(idx, ev));
+            row.addEventListener('dragstart', handleDragStart);
+            row.addEventListener('dragover',  handleDragOver);
+            row.addEventListener('drop',      handleDrop);
+            row.addEventListener('dragend',   handleDragEnd);
+            xSheetList.appendChild(row);
+
+            runningHold += holdVal;
+        });
+
+        // Re-attach playhead
+        tlTrack.appendChild(playhead);
+
+        // Compute total track width
+        const totalW = runningHold * PX_PER_HOLD;
+        tlTrack.style.minWidth = `${Math.max(totalW, 200)}px`;
+
+        document.getElementById('frame-count').textContent = runningHold;
+        drawRuler(totalW, fps);
+        updateStats(runningHold);
+        updateMultiSelBar();
+        updateFrameDisplay();
+        updateTimecode();
+        positionPlayhead();
+    }
+
+    // ── Draw the time ruler ──
+    function drawRuler(totalW, fps) {
+        const canvas = document.getElementById('tl-ruler');
+        const wrap   = document.getElementById('tl-track-wrap');
+        const dispW  = Math.max(totalW, wrap.clientWidth || 400);
+        canvas.width  = dispW;
+        canvas.height = RULER_H;
+        canvas.style.width  = `${dispW}px`;
+
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, dispW, RULER_H);
+        ctx.fillStyle = '#1c2230';
+        ctx.fillRect(0, 0, dispW, RULER_H);
+
+        if (!frames.length) return;
+
+        // Walk frame by frame, drawing ticks at each hold boundary
+        let px = 0;
+        let holdAccum = 0;  // accumulated hold units
+        const totalHold = frames.reduce((s, f) => s + (parseInt(f.hold) || 1), 0);
+
+        // Draw a tick for every hold unit and a second marker every fps holds
+        for (let h = 0; h <= totalHold; h++) {
+            const x  = h * PX_PER_HOLD;
+            const isSec = (h % fps === 0);
+            const isHalf = (h % Math.max(1, Math.floor(fps / 2)) === 0);
+
+            ctx.strokeStyle = isSec ? '#94a3b8' : (isHalf ? '#4a5568' : '#2d3748');
+            ctx.lineWidth   = 1;
+            const tickH = isSec ? RULER_H * 0.75 : (isHalf ? RULER_H * 0.5 : RULER_H * 0.3);
+            ctx.beginPath();
+            ctx.moveTo(x, RULER_H);
+            ctx.lineTo(x, RULER_H - tickH);
+            ctx.stroke();
+
+            if (isSec) {
+                const secs = h / fps;
+                const mm   = Math.floor(secs / 60);
+                const ss   = Math.floor(secs % 60);
+                const ff   = 0;
+                const label = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}`;
+                ctx.fillStyle   = '#94a3b8';
+                ctx.font        = '9px monospace';
+                ctx.textAlign   = 'left';
+                ctx.fillText(label, x + 2, 10);
+            }
+        }
+
+        // Frame number markers at each frame boundary (only if cells are wide enough)
+        if (PX_PER_HOLD >= 30) {
+            let pxOff = 0;
+            frames.forEach((frame, idx) => {
+                const h = parseInt(frame.hold) || 1;
+                ctx.fillStyle = '#4a5568';
+                ctx.font      = '8px monospace';
+                ctx.textAlign = 'left';
+                if (PX_PER_HOLD * h > 20) ctx.fillText(idx + 1, pxOff + 2, RULER_H - 3);
+                pxOff += h * PX_PER_HOLD;
+            });
+        }
+    }
+
+    // ── Ruler click-to-scrub ──
+    function initRulerScrub() {
+        const ruler = document.getElementById('tl-ruler');
+        const wrap  = document.getElementById('tl-track-wrap');
+
+        function scrubFromRulerX(clientX) {
+            const rect     = ruler.getBoundingClientRect();
+            const relX     = clientX - rect.left + wrap.scrollLeft;
+            const holdUnit = Math.floor(relX / PX_PER_HOLD);
+            // Find which frame this hold unit falls in
+            let accum = 0;
+            for (let i = 0; i < frames.length; i++) {
+                accum += parseInt(frames[i].hold) || 1;
+                if (holdUnit < accum) { scrubTo(i); break; }
+            }
+        }
+
+        let rulerDown = false;
+        ruler.addEventListener('mousedown', e => { rulerDown = true; scrubFromRulerX(e.clientX); });
+        ruler.addEventListener('mousemove', e => { if (rulerDown) scrubFromRulerX(e.clientX); });
+        window.addEventListener('mouseup',  () => { rulerDown = false; });
+
+        // Also allow scrubbing by dragging on the track background
+        const track = document.getElementById('tl-track');
+        let trackDown = false;
+        track.addEventListener('mousedown', e => {
+            if (e.target === track || e.target.classList.contains('tl-playhead')) {
+                trackDown = true;
+                scrubFromRulerX(e.clientX);
+            }
+        });
+        track.addEventListener('mousemove', e => { if (trackDown) scrubFromRulerX(e.clientX); });
+        window.addEventListener('mouseup',  () => { trackDown = false; });
+    }
+
+    // ── Position the playhead over the current frame ──
+    function positionPlayhead() {
+        const ph = document.getElementById('tl-playhead');
+        if (!ph) return;
+
+        let pxLeft = 0;
+        const activeIdx = isPlaying ? playheadIdx : currentFrameIdx;
+        if (activeIdx >= 0 && frames.length > 0) {
+            for (let i = 0; i < activeIdx; i++) pxLeft += (parseInt(frames[i].hold) || 1) * PX_PER_HOLD;
+        }
+        ph.style.left = `${pxLeft}px`;
+
+        // Auto-scroll so playhead stays visible
+        const wrap = document.getElementById('tl-track-wrap');
+        if (wrap) {
+            const wrapW = wrap.clientWidth;
+            if (pxLeft < wrap.scrollLeft || pxLeft > wrap.scrollLeft + wrapW - 20) {
+                wrap.scrollLeft = Math.max(0, pxLeft - wrapW / 3);
+            }
+        }
+    }
+
+    // ── Timecode display ──
+    function updateTimecode() {
+        const fps   = parseInt(document.getElementById('fps-slider').value) || 12;
+        const el    = document.getElementById('tl-timecode');
+        if (!el) return;
+        const activeIdx = isPlaying ? playheadIdx : currentFrameIdx;
+        let holdOffset = 0;
+        if (activeIdx >= 0) {
+            for (let i = 0; i < activeIdx; i++) holdOffset += parseInt(frames[i].hold) || 1;
+        }
+        const totalSecs = holdOffset / fps;
+        const mm  = Math.floor(totalSecs / 60);
+        const ss  = Math.floor(totalSecs % 60);
+        const ff  = holdOffset % fps;
+        el.textContent = `${String(mm).padStart(2,'0')}:${String(ss).padStart(2,'0')}:${String(ff).padStart(2,'0')}`;
+    }
+
+    function updateStats(totalHold) {
+        const fps = parseInt(document.getElementById('fps-slider').value);
+        document.getElementById('stat-frames').textContent   = frames.length;
+        document.getElementById('stat-duration').textContent = frames.length ? `${(totalHold/fps).toFixed(1)}s` : '0s';
+        const n = selectedIndices.size;
+        document.getElementById('stat-selected').textContent = n > 0 ? n : '—';
+    }
+
+    // ── Click handling ──
+    function handleRowClick(idx, e) {
+        if (isPlaying) return;
+        if (e.shiftKey && lastClickedIdx >= 0) {
+            const lo = Math.min(lastClickedIdx, idx);
+            const hi = Math.max(lastClickedIdx, idx);
+            selectedIndices.clear();
+            for (let i = lo; i <= hi; i++) selectedIndices.add(i);
+            renderUI();
+        } else if (e.ctrlKey || e.metaKey) {
+            if (selectedIndices.has(idx)) selectedIndices.delete(idx);
+            else selectedIndices.add(idx);
+            lastClickedIdx = idx;
+            renderUI();
+        } else {
+            selectedIndices.clear();
+            lastClickedIdx = idx;
+            scrubTo(idx);
+            renderUI();
+        }
+    }
+
+    function clearMultiSelect() { selectedIndices.clear(); renderUI(); }
+
+    function updateMultiSelBar() {
+        const bar = document.getElementById('multisel-bar');
+        const n   = selectedIndices.size;
+        if (n > 1) {
+            bar.classList.add('visible');
+            document.getElementById('multisel-count').textContent = `${n} frames selected`;
+        } else {
+            bar.classList.remove('visible');
+        }
+    }
+
+    // ── Scrub ──
+    function scrubTo(idx) {
+        if (isPlaying) return;
+        if (idx < 0 || idx >= frames.length) { currentFrameIdx = -1; return; }
+        currentFrameIdx = idx;
+        document.querySelectorAll('.x-row').forEach((r, i) =>
+            r.classList.toggle('selected', i === idx && selectedIndices.size === 0));
+        document.querySelectorAll('.tl-cell').forEach((c, i) => {
+            c.classList.toggle('active-cell', i === idx && selectedIndices.size === 0);
+        });
+        // Scroll x-sheet row into view
+        const row = xSheetList.children[idx];
+        if (row) row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        updateOnion(frames[idx].data);
+        updateFrameDisplay();
+        updateTimecode();
+        positionPlayhead();
+        updateInfoPanel();
+    }
+
+    function updateFrameDisplay() {
+        const el = document.getElementById('pb-frame-display');
+        if (!frames.length) { el.textContent = '— / —'; return; }
+        const shown = isPlaying ? playheadIdx + 1 : (currentFrameIdx >= 0 ? currentFrameIdx + 1 : '—');
+        el.textContent = `${shown} / ${frames.length}`;
+    }
+
+    function updateInfoPanel() {
+        const fps = parseInt(document.getElementById('fps-slider').value);
+        let totalHold = 0;
+        frames.forEach(f => totalHold += parseInt(f.hold));
+        updateStats(totalHold);
+    }
+
+    // ── Drag & Drop ──
+    function handleDragStart(e) {
+        dragSrcEl = this;
+        const dragIdx   = parseInt(this.dataset.index);
+        isDraggingGroup = selectedIndices.size > 1 && selectedIndices.has(dragIdx);
+        if (isDraggingGroup) {
+            document.querySelectorAll('.x-row').forEach(r => {
+                if (selectedIndices.has(parseInt(r.dataset.index))) r.classList.add('drag-group-dragging');
+            });
+        } else { this.classList.add('dragging'); }
+        e.dataTransfer.effectAllowed = 'move';
+    }
+    function handleDragOver(e) { e.preventDefault(); this.classList.add('over'); return false; }
+    function handleDrop(e) {
+        e.preventDefault();
+        const toIdx = parseInt(this.dataset.index);
+        if (isDraggingGroup) {
+            const sorted = Array.from(selectedIndices).sort((a,b) => a-b);
+            const block  = sorted.map(i => frames[i]);
+            sorted.slice().reverse().forEach(i => frames.splice(i, 1));
+            const removedBefore = sorted.filter(i => i < toIdx).length;
+            const insertAt = Math.max(0, Math.min(toIdx - removedBefore, frames.length));
+            frames.splice(insertAt, 0, ...block);
+            selectedIndices.clear();
+            for (let i = insertAt; i < insertAt + block.length; i++) selectedIndices.add(i);
+            renderUI();
+        } else {
+            const fromIdx = parseInt(dragSrcEl.dataset.index);
+            if (fromIdx !== toIdx) {
+                const moved = frames.splice(fromIdx, 1)[0];
+                frames.splice(toIdx, 0, moved);
+                renderUI(); scrubTo(toIdx);
+            }
+        }
+    }
+    function handleDragEnd() {
+        isDraggingGroup = false;
+        document.querySelectorAll('.x-row').forEach(r =>
+            r.classList.remove('dragging', 'over', 'drag-group-dragging'));
+    }
+
+    function updateHold(idx, val) { frames[idx].hold = parseInt(val) || 1; renderUI(); }
+
+    // ── Playback ──
+    function pbGoStart()    { pbStop(); scrubTo(0); }
+    function pbGoEnd()      { pbStop(); scrubTo(frames.length - 1); }
+    function pbStepBack()   { pbStop(); scrubTo(Math.max(0, currentFrameIdx - 1)); }
+    function pbStepForward(){ pbStop(); scrubTo(Math.min(frames.length - 1, currentFrameIdx + 1)); }
+
+    function pbPlay() {
+        if (!frames.length || isPlaying) return;
+        isPlaying   = true;
+        playheadIdx = currentFrameIdx >= 0 ? currentFrameIdx : 0;
+        playbackCanvas.style.display = 'block';
+        document.getElementById('pb-play-btn').style.display  = 'none';
+        document.getElementById('pb-pause-btn').style.display = '';
+        playSequence(playheadIdx);
+    }
+    function pbPause() {
+        if (!isPlaying) return;
+        isPlaying = false; clearTimeout(playTimeout);
+        playbackCanvas.style.display = 'none';
+        document.getElementById('pb-play-btn').style.display  = '';
+        document.getElementById('pb-pause-btn').style.display = 'none';
+        currentFrameIdx = playheadIdx;
+        updateFrameDisplay(); updateInfoPanel();
+    }
+    function pbStop() {
+        if (isPlaying) { isPlaying = false; clearTimeout(playTimeout); }
+        playbackCanvas.style.display = 'none';
+        document.getElementById('pb-play-btn').style.display  = '';
+        document.getElementById('pb-pause-btn').style.display = 'none';
+    }
+    function togglePlayback() { isPlaying ? pbStop() : pbPlay(); }
+
+    function playSequence(idx) {
+        if (!isPlaying) return;
+        playheadIdx = idx % frames.length;
+        updateFrameDisplay();
+        updateTimecode();
+        positionPlayhead();
+        const frame = frames[playheadIdx];
+        const img   = new Image();
+        img.onload = () => {
+            playCtx.clearRect(0, 0, playbackCanvas.width, playbackCanvas.height);
+            playCtx.drawImage(img, 0, 0);
+            const fps   = parseInt(document.getElementById('fps-slider').value);
+            playTimeout = setTimeout(() => playSequence(playheadIdx + 1), (1000 / fps) * frame.hold);
+        };
+        img.src = frame.data;
+    }
+
+    // ── Overlays ──
+    function toggleOverlay(mode) {
+        overlayMode = (overlayMode === mode) ? null : mode;
+        document.getElementById('btn-grid').classList.toggle('active',   overlayMode === 'grid');
+        document.getElementById('btn-thirds').classList.toggle('active', overlayMode === 'thirds');
+        document.getElementById('btn-radial').classList.toggle('active', overlayMode === 'radial');
+        drawOverlay();
+    }
+    function updateOverlayOpacity(val) { overlayOpacity = val / 100; drawOverlay(); }
+
+    function drawOverlay() {
+        const w = overlayCanvas.width, h = overlayCanvas.height;
+        overlayCtx.clearRect(0, 0, w, h);
+        if (!overlayMode || !w || !h) return;
+        overlayCtx.save();
+        overlayCtx.globalAlpha = overlayOpacity;
+
+        if (overlayMode === 'thirds') {
+            overlayCtx.strokeStyle = 'rgba(255,220,0,0.95)';
+            overlayCtx.lineWidth   = Math.max(1, w / 500);
+            const cols = [w/3, 2*w/3], rows = [h/3, 2*h/3];
+            cols.forEach(x => { overlayCtx.beginPath(); overlayCtx.moveTo(x,0); overlayCtx.lineTo(x,h); overlayCtx.stroke(); });
+            rows.forEach(y => { overlayCtx.beginPath(); overlayCtx.moveTo(0,y); overlayCtx.lineTo(w,y); overlayCtx.stroke(); });
+            overlayCtx.fillStyle = 'rgba(255,220,0,0.95)';
+            const dot = Math.max(5, w/180);
+            cols.forEach(x => rows.forEach(y => { overlayCtx.beginPath(); overlayCtx.arc(x,y,dot,0,Math.PI*2); overlayCtx.fill(); }));
+
+        } else if (overlayMode === 'grid') {
+            overlayCtx.strokeStyle = 'rgba(100,200,255,0.75)';
+            overlayCtx.lineWidth   = Math.max(1, w/800);
+            for (let c=1;c<10;c++) { const x=(w/10)*c; overlayCtx.beginPath(); overlayCtx.moveTo(x,0); overlayCtx.lineTo(x,h); overlayCtx.stroke(); }
+            for (let r=1;r<10;r++) { const y=(h/10)*r; overlayCtx.beginPath(); overlayCtx.moveTo(0,y); overlayCtx.lineTo(w,y); overlayCtx.stroke(); }
+
+        } else if (overlayMode === 'radial') {
+            const cx=w/2, cy=h/2, maxR=Math.sqrt(cx*cx+cy*cy);
+            overlayCtx.strokeStyle = 'rgba(180,120,255,0.85)';
+            overlayCtx.lineWidth   = Math.max(1, w/700);
+            for (let i=1;i<=8;i++) { overlayCtx.beginPath(); overlayCtx.arc(cx,cy,(maxR/8)*i,0,Math.PI*2); overlayCtx.stroke(); }
+            overlayCtx.strokeStyle = 'rgba(255,160,80,0.75)';
+            overlayCtx.lineWidth   = Math.max(1, w/900);
+            for (let deg=0;deg<360;deg+=15) {
+                const rad=(deg*Math.PI)/180;
+                overlayCtx.beginPath(); overlayCtx.moveTo(cx,cy); overlayCtx.lineTo(cx+Math.cos(rad)*maxR, cy+Math.sin(rad)*maxR); overlayCtx.stroke();
+            }
+            overlayCtx.fillStyle = 'rgba(255,255,255,0.9)';
+            overlayCtx.beginPath(); overlayCtx.arc(cx,cy,Math.max(3,w/300),0,Math.PI*2); overlayCtx.fill();
+        }
+        overlayCtx.restore();
+    }
+
+    // ── Path Drawing ──
+    function togglePathMode() {
+        pathModeActive = !pathModeActive;
+        document.getElementById('btn-path').classList.toggle('active', pathModeActive);
+        document.getElementById('path-tools').classList.toggle('visible', pathModeActive);
+        pathCanvas.style.display = pathModeActive ? 'block' : 'none';
+    }
+    function setPathColor(el) {
+        document.querySelectorAll('.path-color-btn').forEach(b => b.classList.remove('selected'));
+        el.classList.add('selected'); pathColor = el.dataset.color;
+    }
+    function setPathSize(el) {
+        document.querySelectorAll('.size-btn[data-size]').forEach(b => b.classList.remove('active'));
+        el.classList.add('active'); pathSize = parseInt(el.dataset.size);
+    }
+    function setDrawMode(mode) {
+        drawMode = mode;
+        document.getElementById('mode-draw').classList.toggle('active',  mode === 'draw');
+        document.getElementById('mode-erase').classList.toggle('active', mode === 'erase');
+    }
+    function clearPathCanvas() { pathCtx.clearRect(0, 0, pathCanvas.width, pathCanvas.height); }
+
+    function getCanvasPos(canvas, evt) {
+        const rect = canvas.getBoundingClientRect();
+        return { x: (evt.clientX-rect.left)*(canvas.width/rect.width), y: (evt.clientY-rect.top)*(canvas.height/rect.height) };
+    }
+
+    pathCanvas.addEventListener('mousedown', e => {
+        if (!pathModeActive) return; isDrawing = true;
+        const pos=getCanvasPos(pathCanvas,e), era=drawMode==='erase';
+        lastX=pos.x; lastY=pos.y;
+        pathCtx.globalCompositeOperation = era ? 'destination-out' : 'source-over';
+        pathCtx.fillStyle = era ? 'rgba(0,0,0,1)' : pathColor;
+        pathCtx.beginPath(); pathCtx.arc(lastX,lastY,(era?pathSize*3:pathSize)/2,0,Math.PI*2); pathCtx.fill();
+    });
+    pathCanvas.addEventListener('mousemove', e => {
+        if (!isDrawing||!pathModeActive) return;
+        const pos=getCanvasPos(pathCanvas,e), era=drawMode==='erase', size=era?pathSize*3:pathSize;
+        pathCtx.globalCompositeOperation = era ? 'destination-out' : 'source-over';
+        pathCtx.strokeStyle = era ? 'rgba(0,0,0,1)' : pathColor;
+        pathCtx.lineWidth=size; pathCtx.lineCap=pathCtx.lineJoin='round';
+        pathCtx.beginPath(); pathCtx.moveTo(lastX,lastY); pathCtx.lineTo(pos.x,pos.y); pathCtx.stroke();
+        lastX=pos.x; lastY=pos.y;
+    });
+    pathCanvas.addEventListener('mouseup',    () => { isDrawing = false; });
+    pathCanvas.addEventListener('mouseleave', () => { isDrawing = false; });
+
+    // ── Project data ──
+    function downloadJSON() {
+        const data = { metadata: { project: document.getElementById('meta-project').value }, frames };
+        const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${document.getElementById('meta-project').value}.json`;
+        a.click();
+    }
+    function uploadJSON(e) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const data = JSON.parse(ev.target.result);
+            frames = data.frames; selectedIndices.clear();
+            renderUI(); scrubTo(frames.length - 1);
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+    async function exportImages() {
+        if (!frames.length) { alert('No frames to export.'); return; }
+
+        const project = document.getElementById('meta-project').value || 'animation';
+        const statusEl = document.getElementById('status-msg');
+        statusEl.textContent = 'Preparing export…';
+
+        // ── Option 1: File System Access API (Chrome/Chromebook — no prompts per file) ──
+        if (window.showDirectoryPicker) {
+            try {
+                const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+                for (let i = 0; i < frames.length; i++) {
+                    const name = `${project}_${String(i+1).padStart(4,'0')}.jpg`;
+                    const fileHandle = await dirHandle.getFileHandle(name, { create: true });
+                    const writable   = await fileHandle.createWritable();
+                    // Convert base64 to blob
+                    const res  = await fetch(frames[i].data);
+                    const blob = await res.blob();
+                    await writable.write(blob);
+                    await writable.close();
+                    statusEl.textContent = `Exporting… ${i+1}/${frames.length}`;
+                }
+                statusEl.textContent = `Exported ${frames.length} frames to folder.`;
+                return;
+            } catch (e) {
+                if (e.name === 'AbortError') { statusEl.textContent = 'Export cancelled.'; return; }
+                // Fall through to ZIP if something else went wrong
+            }
+        }
+
+        // ── Option 2: ZIP download (single save prompt, works everywhere) ──
+        try {
+            // Load JSZip from CDN
+            if (!window.JSZip) {
+                await new Promise((resolve, reject) => {
+                    const s = document.createElement('script');
+                    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+                    s.onload = resolve; s.onerror = reject;
+                    document.head.appendChild(s);
+                });
+            }
+            const zip = new JSZip();
+            const folder = zip.folder(project);
+            for (let i = 0; i < frames.length; i++) {
+                const name   = `${project}_${String(i+1).padStart(4,'0')}.jpg`;
+                const base64 = frames[i].data.split(',')[1];
+                folder.file(name, base64, { base64: true });
+                statusEl.textContent = `Zipping… ${i+1}/${frames.length}`;
+            }
+            const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `${project}_frames.zip`;
+            a.click();
+            statusEl.textContent = `Downloaded ${frames.length} frames as ZIP.`;
+        } catch (e) {
+            statusEl.textContent = 'Export failed — check console.';
+            console.error(e);
+        }
+    }
+    function exportVideo() {
+        alert('Export WebM: requires MediaRecorder or server-side processing.\nRun the app via localhost to enable MediaRecorder API.');
+    }
+    function deleteLastFrame() {
+        if (!frames.length) return;
+        selectedIndices.delete(frames.length - 1);
+        frames.pop(); renderUI(); scrubTo(frames.length - 1);
+    }
+    function clearProject() {
+        if (confirm('Start a new project? This will clear all frames.')) {
+            frames=[]; currentFrameIdx=-1; selectedIndices.clear(); renderUI(); updateOnion(null);
+        }
+    }
+    function updateOnion(url) {
+        onionCtx.clearRect(0,0,onionCanvas.width,onionCanvas.height);
+        if (url) { const img=new Image(); img.onload=()=>onionCtx.drawImage(img,0,0); img.src=url; }
+    }
+
+    document.getElementById('bg-upload').onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = ev => {
+            bgLayer.src = ev.target.result;
+            document.getElementById('bg-name').textContent = file.name;
+            document.getElementById('bg-clear-btn').style.display = '';
+        };
+        reader.readAsDataURL(file);
+    };
+
+    function clearBackground() {
+        bgLayer.src = '';
+        bgLayer.removeAttribute('src');
+        document.getElementById('bg-name').textContent = 'None';
+        document.getElementById('bg-clear-btn').style.display = 'none';
+        document.getElementById('bg-upload').value = '';
+    }
+
+    window.onkeydown = e => {
+        if (e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
+        if (e.code==='Space')      { e.preventDefault(); captureFrame(); }
+        if (e.code==='Backspace')  { e.preventDefault(); deleteLastFrame(); }
+        if (e.code==='ArrowLeft')  { e.preventDefault(); pbStepBack(); }
+        if (e.code==='ArrowRight') { e.preventDefault(); pbStepForward(); }
+        if (e.code==='Home')       { e.preventDefault(); pbGoStart(); }
+        if (e.code==='End')        { e.preventDefault(); pbGoEnd(); }
+        if (e.code==='KeyP')       { e.preventDefault(); isPlaying ? pbPause() : pbPlay(); }
+        if (e.code==='Escape')     { clearMultiSelect(); }
+    };
+
+    document.getElementById('fps-slider').oninput  = function() {
+        document.getElementById('fps-val').textContent = this.value;
+        updateInfoPanel();
+        renderUI();  // redraw ruler and cell labels with new FPS
+    };
+    // Onion slider percentage label
+    document.getElementById('onion-slider').oninput = function() {
+        onionCanvas.style.opacity = this.value / 100;
+        const lbl = document.getElementById('onion-val');
+        if (lbl) lbl.textContent = this.value + '%';
+    };
+
+    const resizeObs = new ResizeObserver(() => {
+        if (camCanvas.width > 0) syncOverlayCanvases();
+        // Redraw ruler to fill new width
+        if (frames.length > 0) {
+            const fps      = parseInt(document.getElementById('fps-slider').value);
+            const totalHold = frames.reduce((s,f) => s + (parseInt(f.hold)||1), 0);
+            drawRuler(totalHold * PX_PER_HOLD, fps);
+        }
+    });
+    resizeObs.observe(document.getElementById('viewport'));
+
+    initRulerScrub();
+    init();
+</script>
+</body>
+</html>
