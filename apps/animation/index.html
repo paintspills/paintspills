@@ -1,1 +1,333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tuffree Animation Studio | PRO-VERSION</title>
+    <style>
+        :root { --bg: #0a0a0a; --panel: #151515; --accent: #2ed573; --danger: #ff4757; --ui-blue: #007bff; }
+        * { box-sizing: border-box; outline: none; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: white; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Header */
+        header { height: 40px; padding: 0 20px; background: #000; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #333; }
+        .logo { font-weight: 900; font-size: 0.8rem; letter-spacing: 3px; text-transform: uppercase; }
+        .logo span { color: var(--accent); }
 
+        .workspace { display: flex; flex: 1; overflow: hidden; }
+
+        /* Left: X-Sheet */
+        .x-sheet { width: 220px; background: #111; border-right: 1px solid #333; display: flex; flex-direction: column; }
+        .x-header { padding: 10px; background: #1a1a1a; font-size: 10px; font-weight: bold; border-bottom: 1px solid #333; color: #888; text-align: center; }
+        .x-content { flex: 1; overflow-y: auto; font-family: 'Courier New', monospace; }
+        .x-row { display: grid; grid-template-columns: 35px 1fr 45px; padding: 5px 0; border-bottom: 1px solid #222; align-items: center; cursor: move; transition: 0.2s; }
+        .x-row:hover { background: #1a1a1a; }
+        .x-row.selected { background: #1e2a1e; border-right: 4px solid var(--accent); }
+        .x-num { text-align: center; color: #555; font-size: 10px; }
+        .x-hold { width: 35px; background: #000; border: 1px solid #444; color: var(--accent); text-align: center; border-radius: 3px; }
+
+        /* Center: Viewport */
+        .viewport { flex: 1; background: #050505; position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .v-stack { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+        canvas, video { position: absolute; max-width: 95%; max-height: 95%; object-fit: contain; }
+        #webcam-canvas { z-index: 2; }
+        #onion-skin { z-index: 3; pointer-events: none; mix-blend-mode: normal; }
+        #drawing-canvas { z-index: 4; cursor: crosshair; }
+        #playback-view { z-index: 10; display: none; background: #000; }
+
+        /* Right: Inspector */
+        .inspector { width: 260px; background: #111; border-left: 1px solid #333; padding: 15px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        .card { background: #1a1a1a; border: 1px solid #222; padding: 12px; border-radius: 5px; }
+        .card-label { font-size: 10px; font-weight: 800; color: #666; text-transform: uppercase; margin-bottom: 10px; display: block; border-bottom: 1px solid #222; padding-bottom: 5px; }
+        
+        /* Dashboard */
+        .dashboard { height: 220px; background: var(--panel); border-top: 1px solid #333; display: flex; }
+        .dash-side { width: 220px; border-right: 1px solid #222; padding: 15px; display: flex; flex-direction: column; gap: 8px; }
+        .timeline-area { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+        .timeline-scroll { flex: 1; display: flex; gap: 10px; padding: 15px; overflow-x: auto; align-items: center; background: #0c0c0c; }
+        .thumb { height: 90px; aspect-ratio: 16/9; background: #000; border-radius: 4px; border: 2px solid transparent; flex-shrink: 0; cursor: pointer; }
+        .thumb.active { border-color: var(--accent); }
+        .timeline-ctrl { height: 45px; background: #111; border-top: 1px solid #222; display: flex; align-items: center; padding: 0 15px; gap: 20px; }
+
+        /* Inputs & Buttons */
+        label { font-size: 10px; color: #888; font-weight: bold; }
+        input[type="range"] { width: 100%; accent-color: var(--accent); }
+        select, input[type="text"], input[type="number"] { background: #000; border: 1px solid #333; color: white; padding: 5px; font-size: 11px; border-radius: 3px; }
+        button { cursor: pointer; border: none; border-radius: 4px; font-weight: bold; font-size: 11px; padding: 8px; transition: 0.2s; }
+        .btn-main { background: var(--danger); color: white; font-size: 14px; height: 45px; }
+        .btn-sub { background: #222; color: #ccc; border: 1px solid #333; }
+        .btn-sub:hover { background: #333; }
+        .btn-blue { background: var(--ui-blue); color: white; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">TUFFREE <span>PRO STUDIO</span></div>
+    <div id="cam-status" style="font-size: 11px; color: #555;">SYSTEM READY</div>
+</header>
+
+<div class="workspace">
+    <div class="x-sheet">
+        <div class="x-header">X-SHEET / EXPOSURE</div>
+        <div class="x-content" id="x-list"></div>
+    </div>
+
+    <div class="viewport">
+        <div class="v-stack">
+            <video id="webcam" autoplay playsinline style="display:none;"></video>
+            <canvas id="bg-canvas"></canvas>
+            <canvas id="webcam-canvas"></canvas>
+            <canvas id="onion-skin"></canvas>
+            <canvas id="drawing-canvas"></canvas>
+            <canvas id="playback-view"></canvas>
+        </div>
+    </div>
+
+    <div class="inspector">
+        <div class="card">
+            <span class="card-label">Onion Skinning</span>
+            <label>Opacity Control</label>
+            <input type="range" id="onion-alpha" min="0" max="1" step="0.05" value="0.4" oninput="applyOnion()">
+        </div>
+
+        <div class="card">
+            <span class="card-label">Chroma Key Engine</span>
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+                <input type="checkbox" id="chroma-toggle"> <label>Enable Filter</label>
+            </div>
+            <label>Sensitivity</label>
+            <input type="range" id="chroma-thresh" min="10" max="250" value="120">
+            <label style="margin-top:10px; display:block;">Plate Upload</label>
+            <input type="file" id="bg-upload" accept="image/*" style="width:100%" onchange="loadPlate(event)">
+        </div>
+
+        <div class="card">
+            <span class="card-label">Guides & Composition</span>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:5px;">
+                <button class="btn-sub" onclick="clearDraw()">Clear Ink</button>
+                <button class="btn-sub" id="grid-btn" onclick="toggleGrid()">Grid</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="dashboard">
+    <div class="dash-side">
+        <label>Project Name</label>
+        <input type="text" id="proj-name" value="Scene_001">
+        <div style="display:flex; gap:5px;">
+            <button class="btn-sub" style="flex:1" onclick="saveProject()">SAVE</button>
+            <button class="btn-sub" style="flex:1" onclick="document.getElementById('load-input').click()">OPEN</button>
+        </div>
+        <input type="file" id="load-input" style="display:none;" onchange="loadProject(event)">
+        <button class="btn-blue" onclick="exportVideo()">EXPORT SEQUENCE</button>
+    </div>
+
+    <div class="dash-side" style="width:180px;">
+        <label>Video Input</label>
+        <select id="cam-select" onchange="startCam(this.value)"></select>
+        <button class="btn-main" onclick="capture()">CAPTURE</button>
+        <button class="btn-sub" onclick="undo()">UNDO LAST</button>
+    </div>
+
+    <div class="timeline-area">
+        <div class="timeline-scroll" id="timeline"></div>
+        <div class="timeline-ctrl">
+            <span style="font-size:11px; font-weight:bold; color:#444;">FPS: <span id="fps-val" style="color:var(--accent)">12</span></span>
+            <input type="range" id="fps-slider" min="1" max="24" value="12" style="width:150px;">
+            <button class="btn-blue" id="play-btn" onclick="togglePlay()" style="width:120px;">PLAY PREVIEW</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('webcam');
+    const camCanvas = document.getElementById('webcam-canvas');
+    const bgCanvas = document.getElementById('bg-canvas');
+    const onionCanvas = document.getElementById('onion-skin');
+    const drawCanvas = document.getElementById('drawing-canvas');
+    
+    const camCtx = camCanvas.getContext('2d', {willReadFrequently: true});
+    const bgCtx = bgCanvas.getContext('2d');
+    const onionCtx = onionCanvas.getContext('2d');
+    const drawCtx = drawCanvas.getContext('2d');
+
+    let frames = [];
+    let isPlaying = false;
+    let bgPlate = null;
+    let dragSrc = null;
+
+    async function init() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const vids = devices.filter(d => d.kind === 'videoinput');
+        vids.forEach(d => {
+            let o = document.createElement('option'); o.value = d.deviceId; o.text = d.label || 'Camera';
+            document.getElementById('cam-select').appendChild(o);
+        });
+        if(vids.length) startCam(vids[0].deviceId);
+        setupDrawing();
+    }
+
+    async function startCam(id) {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { deviceId: id, width: 1280, height: 720 } });
+        video.srcObject = s;
+        video.onloadedmetadata = () => {
+            [camCanvas, bgCanvas, onionCanvas, drawCanvas, document.getElementById('playback-view')].forEach(c => {
+                c.width = video.videoWidth; c.height = video.videoHeight;
+            });
+            requestAnimationFrame(engine);
+        };
+    }
+
+    function engine() {
+        if (!isPlaying) {
+            camCtx.drawImage(video, 0, 0);
+            if (document.getElementById('chroma-toggle').checked) {
+                const img = camCtx.getImageData(0,0,camCanvas.width, camCanvas.height);
+                const t = document.getElementById('chroma-thresh').value;
+                for(let i=0; i<img.data.length; i+=4) {
+                    let r=img.data[i], g=img.data[i+1], b=img.data[i+2];
+                    if(g > 70 && g > r*1.2 && g > b*1.2) img.data[i+3] = 0;
+                }
+                camCtx.putImageData(img, 0, 0);
+            }
+        }
+        requestAnimationFrame(engine);
+    }
+
+    function capture() {
+        const c = document.createElement('canvas');
+        c.width = camCanvas.width; c.height = camCanvas.height;
+        const ctx = c.getContext('2d');
+        if(bgPlate) ctx.drawImage(bgCanvas, 0, 0);
+        ctx.drawImage(camCanvas, 0, 0);
+        
+        frames.push({ data: c.toDataURL('image/jpeg', 0.8), hold: 1 });
+        renderUI();
+        applyOnion(); 
+    }
+
+    function renderUI() {
+        const list = document.getElementById('x-list');
+        const tl = document.getElementById('timeline');
+        list.innerHTML = ''; tl.innerHTML = '';
+        
+        frames.forEach((f, i) => {
+            let row = document.createElement('div');
+            row.className = 'x-row';
+            row.draggable = true;
+            row.innerHTML = `<div class="x-num">${i+1}</div><div style="padding-left:10px">FR_${i+1}</div><input type="number" class="x-hold" value="${f.hold}" onchange="frames[${i}].hold=parseInt(this.value)">`;
+            row.onclick = () => selectFrame(i);
+            
+            // Drag Logic
+            row.ondragstart = () => { dragSrc = i; row.style.opacity = '0.5'; };
+            row.ondragover = (e) => e.preventDefault();
+            row.ondrop = () => {
+                const item = frames.splice(dragSrc, 1)[0];
+                frames.splice(i, 0, item);
+                renderUI();
+            };
+            list.appendChild(row);
+
+            let t = document.createElement('img');
+            t.className = 'thumb';
+            t.src = f.data;
+            t.onclick = () => selectFrame(i);
+            tl.appendChild(t);
+        });
+        tl.scrollLeft = tl.scrollWidth;
+    }
+
+    function selectFrame(idx) {
+        document.querySelectorAll('.x-row').forEach(r => r.classList.remove('selected'));
+        if(document.getElementById('x-list').children[idx]) document.getElementById('x-list').children[idx].classList.add('selected');
+        
+        const img = new Image();
+        img.src = frames[idx].data;
+        img.onload = () => {
+            onionCtx.clearRect(0,0,onionCanvas.width, onionCanvas.height);
+            onionCtx.drawImage(img, 0, 0);
+        };
+    }
+
+    function applyOnion() {
+        onionCanvas.style.opacity = document.getElementById('onion-alpha').value;
+        if(frames.length > 0) selectFrame(frames.length - 1);
+    }
+
+    function togglePlay() {
+        if(!frames.length) return;
+        isPlaying = !isPlaying;
+        const pb = document.getElementById('playback-view');
+        pb.style.display = isPlaying ? 'block' : 'none';
+        if(isPlaying) {
+            let i = 0;
+            const step = () => {
+                if(!isPlaying) return;
+                const img = new Image(); img.src = frames[i % frames.length].data;
+                img.onload = () => {
+                    pb.getContext('2d').drawImage(img, 0, 0);
+                    setTimeout(step, (1000/document.getElementById('fps-slider').value) * frames[i % frames.length].hold);
+                    i++;
+                };
+            };
+            step();
+        }
+    }
+
+    function loadPlate(e) {
+        const r = new FileReader();
+        r.onload = (f) => {
+            bgPlate = new Image();
+            bgPlate.onload = () => bgCtx.drawImage(bgPlate, 0, 0, bgCanvas.width, bgCanvas.height);
+            bgPlate.src = f.target.result;
+        };
+        r.readAsDataURL(e.target.files[0]);
+    }
+
+    function setupDrawing() {
+        let active = false;
+        drawCanvas.onmousedown = () => { active = true; drawCtx.beginPath(); drawCtx.strokeStyle = "#FFFF00"; drawCtx.lineWidth = 3; };
+        drawCanvas.onmousemove = (e) => {
+            if(!active) return;
+            const r = drawCanvas.getBoundingClientRect();
+            drawCtx.lineTo((e.clientX - r.left)*(drawCanvas.width/r.width), (e.clientY - r.top)*(drawCanvas.height/r.height));
+            drawCtx.stroke();
+        };
+        window.onmouseup = () => active = false;
+    }
+
+    function clearDraw() { drawCtx.clearRect(0,0,drawCanvas.width, drawCanvas.height); }
+    
+    function undo() { frames.pop(); renderUI(); applyOnion(); }
+
+    function saveProject() {
+        const blob = new Blob([JSON.stringify({name: document.getElementById('proj-name').value, frames})], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'project.json'; a.click();
+    }
+
+    function loadProject(e) {
+        const r = new FileReader();
+        r.onload = (f) => { const d = JSON.parse(f.target.result); frames = d.frames; renderUI(); };
+        r.readAsText(e.target.files[0]);
+    }
+
+    function exportVideo() {
+        const link = document.createElement('a');
+        link.download = `Animation_Export.html`;
+        const content = `<html><body style="margin:0;background:#000;"><canvas id="v"></canvas><script>
+            const f = ${JSON.stringify(frames)}; let i=0; const c=document.getElementById('v'); const ctx=c.getContext('2d');
+            function p(){ const img=new Image(); img.src=f[i%f.length].data; img.onload=()=>{ c.width=img.width; c.height=img.height; ctx.drawImage(img,0,0); i++; setTimeout(p, 1000/12); }; } p();
+        <\/script></body></html>`;
+        link.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(content);
+        link.click();
+    }
+
+    document.getElementById('fps-slider').oninput = function() { document.getElementById('fps-val').innerText = this.value; };
+    window.onkeydown = (e) => { if(e.code === 'Space' && e.target.tagName !== 'INPUT') { e.preventDefault(); capture(); } };
+
+    init();
+</script>
+</body>
+</html>
