@@ -1,1 +1,2544 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cork Board — Upload. Mark up. Point things out.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+<style>
+  /* =============================================
+     CORK BOARD v2 — CSS Variables
+     Rebrand: edit these :root values
+  ============================================= */
+  :root {
+    --cork-bg: #c8a97a;
+    --cork-dark: #8b6914;
+    --cork-light: #e8d5b0;
+    --panel-bg: #fdf6ec;
+    --panel-border: #d4b896;
+    --toolbar-bg: #2c1f0e;
+    --toolbar-text: #f5e6d0;
+    --accent: #e05c2a;
+    --accent-light: #f07a4a;
+    --accent-subtle: rgba(224,92,42,0.12);
+    --text-primary: #1a1108;
+    --text-secondary: #6b4f2a;
+    --text-muted: #a08060;
+    --shadow-sm: 0 1px 3px rgba(0,0,0,0.12);
+    --shadow-md: 0 4px 12px rgba(0,0,0,0.15);
+    --shadow-lg: 0 8px 28px rgba(0,0,0,0.2);
+    --radius: 8px;
+    --radius-sm: 4px;
+    --radius-lg: 12px;
+    --filmstrip-h: 80px;
+  }
 
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--cork-bg);
+    color: var(--text-primary);
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== TOP BAR ===== */
+  #topbar {
+    background: var(--toolbar-bg);
+    color: var(--toolbar-text);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 14px;
+    height: 52px;
+    flex-shrink: 0;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.35);
+    z-index: 100;
+  }
+
+  #app-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.35rem;
+    color: var(--cork-light);
+    white-space: nowrap;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+  }
+
+  #app-title .pin-icon { font-size: 1rem; transform: rotate(-15deg); display: inline-block; }
+
+  #app-subtitle {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-style: italic;
+    white-space: nowrap;
+    margin-left: 2px;
+  }
+
+  .topbar-sep { width: 1px; height: 28px; background: rgba(255,255,255,0.12); flex-shrink: 0; }
+  .topbar-spacer { flex: 1; }
+
+  .topbar-btn {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    padding: 6px 11px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: var(--radius-sm);
+    color: var(--toolbar-text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.76rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s;
+    white-space: nowrap;
+  }
+
+  .topbar-btn:hover { background: rgba(255,255,255,0.15); border-color: rgba(255,255,255,0.3); }
+  .topbar-btn.accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .topbar-btn.accent:hover { background: var(--accent-light); border-color: var(--accent-light); }
+  .topbar-btn.danger-btn { background: rgba(220,60,60,0.15); border-color: rgba(220,60,60,0.35); color: #ff9999; }
+  .topbar-btn.danger-btn:hover { background: rgba(220,60,60,0.3); border-color: rgba(220,60,60,0.6); color: #ffbbbb; }
+
+  #presentation-mode-indicator {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(224,92,42,0.25);
+    border: 1px solid var(--accent);
+    border-radius: 20px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: #ffb899;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* ===== MAIN LAYOUT ===== */
+  #main-layout { display: flex; flex: 1; overflow: hidden; position: relative; }
+
+  /* ===== LEFT TOOLBAR ===== */
+  #toolbar {
+    width: 60px;
+    background: var(--toolbar-bg);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 8px 0;
+    gap: 1px;
+    flex-shrink: 0;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.25);
+    z-index: 50;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+
+  #toolbar.hidden { display: none; }
+
+  .tool-btn {
+    width: 44px; height: 44px;
+    border-radius: var(--radius-sm);
+    border: none;
+    background: transparent;
+    color: #a08060;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 0.95rem;
+    transition: background 0.12s, color 0.12s;
+    position: relative;
+    flex-shrink: 0;
+  }
+
+  .tool-btn:hover { background: rgba(255,255,255,0.08); color: var(--cork-light); }
+  .tool-btn.active { background: var(--accent-subtle); color: var(--accent-light); box-shadow: inset 0 0 0 1px rgba(224,92,42,0.4); }
+  .tool-btn.laser-active { background: rgba(220,30,30,0.2); color: #ff6060; box-shadow: inset 0 0 0 1px rgba(220,30,30,0.5); animation: laser-pulse 1s ease-in-out infinite alternate; }
+
+  @keyframes laser-pulse {
+    from { box-shadow: inset 0 0 0 1px rgba(220,30,30,0.5); }
+    to { box-shadow: inset 0 0 0 1px rgba(220,30,30,0.9), 0 0 8px rgba(220,30,30,0.4); }
+  }
+
+  .tool-btn .tool-label { font-size: 0.5rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: inherit; opacity: 0.75; }
+  .tool-sep { width: 32px; height: 1px; background: rgba(255,255,255,0.08); margin: 3px 0; flex-shrink: 0; }
+
+  .tool-btn[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    left: 52px; top: 50%;
+    transform: translateY(-50%);
+    background: #1a1108; color: #f5e6d0;
+    font-size: 0.7rem; padding: 4px 8px;
+    border-radius: 4px; white-space: nowrap;
+    z-index: 999; pointer-events: none;
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ===== WORKSPACE ===== */
+  #workspace {
+    flex: 1; overflow: hidden; position: relative;
+    background:
+      repeating-linear-gradient(0deg, transparent, transparent 30px, rgba(139,105,20,0.06) 30px, rgba(139,105,20,0.06) 31px),
+      repeating-linear-gradient(90deg, transparent, transparent 30px, rgba(139,105,20,0.06) 30px, rgba(139,105,20,0.06) 31px),
+      var(--cork-bg);
+  }
+
+  #laser-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 200; display: none; }
+  #laser-canvas { width: 100%; height: 100%; }
+
+  #canvas-container { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; z-index: 1; }
+
+  #canvas-wrapper {
+    position: relative;
+    box-shadow: var(--shadow-lg), 0 0 0 1px rgba(0,0,0,0.1);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  /* Crop canvas overlay — sits over the whole workspace, outside canvas-wrapper so overflow:hidden doesn't clip it */
+  #crop-overlay-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    pointer-events: none;   /* mouse events are captured by the workspace div in crop mode */
+    z-index: 151;
+    cursor: crosshair;
+  }
+  #crop-overlay-canvas.active { display: block; }
+
+  /* Crop floating toolbar — anchored to workspace */
+  #crop-ui {
+    position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+    display: none; z-index: 310;
+    background: rgba(28,18,6,0.92); border: 1px solid rgba(255,255,255,0.18);
+    border-radius: var(--radius); padding: 8px 16px; gap: 10px;
+    align-items: center; color: var(--cork-light);
+    font-size: 0.8rem; font-weight: 500;
+    backdrop-filter: blur(6px); white-space: nowrap;
+    box-shadow: var(--shadow-md);
+  }
+  #crop-ui.visible { display: flex; }
+
+  .crop-ui-btn {
+    padding: 5px 12px; border-radius: var(--radius-sm);
+    border: 1px solid rgba(255,255,255,0.2);
+    background: rgba(255,255,255,0.1); color: var(--cork-light);
+    font-family: 'DM Sans', sans-serif; font-size: 0.76rem; font-weight: 600;
+    cursor: pointer; transition: background 0.12s;
+  }
+  .crop-ui-btn:hover { background: rgba(255,255,255,0.2); }
+  .crop-ui-btn.apply { background: var(--accent); border-color: var(--accent); }
+  .crop-ui-btn.apply:hover { background: var(--accent-light); }
+
+  /* Empty state */
+  #empty-state {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 16px; z-index: 10; pointer-events: none;
+  }
+  #empty-state.hidden { display: none; }
+
+  .empty-inner {
+    text-align: center;
+    background: rgba(253,246,236,0.9); border: 2px dashed var(--panel-border);
+    border-radius: var(--radius-lg); padding: 36px 48px; max-width: 380px;
+    pointer-events: all; cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .empty-inner:hover, .empty-inner.drag-over { border-color: var(--accent); background: rgba(253,246,236,0.98); }
+  .empty-pin { font-size: 2.8rem; margin-bottom: 8px; }
+  .empty-title { font-family: 'Playfair Display', serif; font-size: 1.35rem; color: var(--text-primary); margin-bottom: 8px; }
+  .empty-sub { font-size: 0.82rem; color: var(--text-secondary); line-height: 1.5; margin-bottom: 18px; }
+  .empty-upload-btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 10px 22px; background: var(--accent); color: #fff;
+    border: none; border-radius: var(--radius);
+    font-family: 'DM Sans', sans-serif; font-size: 0.86rem; font-weight: 600;
+    cursor: pointer; transition: background 0.15s; margin-bottom: 10px;
+  }
+  .empty-upload-btn:hover { background: var(--accent-light); }
+  .empty-batch-hint { font-size: 0.72rem; color: var(--text-muted); }
+
+  /* ===== FILMSTRIP ===== */
+  #filmstrip {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: var(--filmstrip-h);
+    background: rgba(28,18,6,0.9);
+    display: none; align-items: center; gap: 6px;
+    padding: 8px 10px; z-index: 60;
+    overflow-x: auto; overflow-y: hidden;
+    border-top: 1px solid rgba(255,255,255,0.1);
+  }
+  #filmstrip.visible { display: flex; }
+  #filmstrip::-webkit-scrollbar { height: 4px; }
+  #filmstrip::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+  .film-thumb {
+    flex-shrink: 0; width: 56px; height: 56px; border-radius: 4px;
+    overflow: hidden; cursor: pointer;
+    border: 2px solid transparent;
+    transition: border-color 0.15s, transform 0.12s;
+    position: relative;
+  }
+  .film-thumb:hover { transform: scale(1.06); }
+  .film-thumb.active { border-color: var(--accent); }
+  .film-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+  .film-remove {
+    position: absolute; top: 2px; right: 2px;
+    width: 16px; height: 16px;
+    background: rgba(0,0,0,0.75); border-radius: 50%;
+    border: none; cursor: pointer; color: #fff;
+    font-size: 0.58rem;
+    display: flex; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.15s;
+  }
+  .film-thumb:hover .film-remove { opacity: 1; }
+
+  .film-add-btn {
+    flex-shrink: 0; width: 56px; height: 56px; border-radius: 4px;
+    border: 2px dashed rgba(255,255,255,0.25);
+    background: transparent; color: rgba(255,255,255,0.5);
+    font-size: 1.5rem; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: border-color 0.15s, color 0.15s;
+  }
+  .film-add-btn:hover { border-color: var(--accent); color: var(--accent-light); }
+
+  #filmstrip-label {
+    flex-shrink: 0; color: rgba(255,255,255,0.3);
+    font-size: 0.6rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    margin-right: 2px;
+  }
+
+  /* ===== RIGHT PANEL ===== */
+  #props-panel {
+    width: 196px; background: var(--panel-bg);
+    border-left: 1px solid var(--panel-border);
+    display: flex; flex-direction: column; flex-shrink: 0;
+    overflow-y: auto; z-index: 50; font-size: 0.8rem;
+  }
+  #props-panel.hidden { display: none; }
+
+  .panel-section { padding: 11px 13px; border-bottom: 1px solid var(--panel-border); }
+  .panel-section-title { font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 9px; }
+
+  .prop-row { display: flex; align-items: center; justify-content: space-between; gap: 7px; margin-bottom: 7px; }
+  .prop-label { color: var(--text-secondary); font-size: 0.74rem; white-space: nowrap; }
+  .prop-input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--panel-border); border-radius: var(--radius-sm); background: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.74rem; color: var(--text-primary); outline: none; }
+  .prop-input:focus { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-subtle); }
+  input[type="color"].prop-input { padding: 2px; height: 28px; cursor: pointer; }
+  input[type="range"].prop-range { flex: 1; min-width: 0; accent-color: var(--accent); cursor: pointer; }
+  .prop-value { font-size: 0.7rem; color: var(--text-muted); min-width: 28px; text-align: right; }
+
+  .panel-btn {
+    width: 100%; padding: 7px 10px;
+    background: #fff; border: 1px solid var(--panel-border);
+    border-radius: var(--radius-sm);
+    font-family: 'DM Sans', sans-serif; font-size: 0.76rem; font-weight: 500;
+    color: var(--text-secondary); cursor: pointer;
+    transition: background 0.12s, border-color 0.12s;
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: 5px;
+  }
+  .panel-btn:hover { background: var(--cork-light); border-color: var(--cork-dark); color: var(--text-primary); }
+  .panel-btn:last-child { margin-bottom: 0; }
+  .panel-btn.danger:hover { background: #fef2f2; border-color: #fca5a5; color: #dc2626; }
+
+  .zoom-row { display: flex; align-items: center; gap: 6px; }
+  .zoom-btn { width: 27px; height: 27px; border-radius: var(--radius-sm); border: 1px solid var(--panel-border); background: #fff; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background 0.1s; color: var(--text-secondary); }
+  .zoom-btn:hover { background: var(--cork-light); }
+  .zoom-label { flex: 1; text-align: center; font-size: 0.74rem; font-weight: 600; color: var(--text-secondary); }
+
+  .color-swatches { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 6px; }
+  .swatch { width: 19px; height: 19px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; transition: transform 0.1s, border-color 0.1s; }
+  .swatch:hover { transform: scale(1.18); }
+  .swatch.selected { border-color: var(--accent); transform: scale(1.1); }
+
+  /* ===== STATUS BAR ===== */
+  #statusbar {
+    height: 26px; background: var(--toolbar-bg); color: var(--text-muted);
+    font-size: 0.67rem; display: flex; align-items: center;
+    padding: 0 12px; gap: 14px; flex-shrink: 0;
+    border-top: 1px solid rgba(255,255,255,0.05); z-index: 200;
+  }
+  #statusbar span { white-space: nowrap; }
+
+  /* ===== MODALS ===== */
+  .modal-backdrop { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+  .modal-backdrop.open { display: flex; }
+  .modal { background: var(--panel-bg); border-radius: var(--radius-lg); padding: 26px; max-width: 400px; width: 90%; box-shadow: var(--shadow-lg); }
+  .modal h2 { font-family: 'Playfair Display', serif; font-size: 1.15rem; margin-bottom: 10px; color: var(--text-primary); }
+  .modal p { font-size: 0.81rem; color: var(--text-secondary); line-height: 1.55; margin-bottom: 16px; }
+  .modal-btns { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-btn { padding: 7px 16px; border-radius: var(--radius); border: 1px solid var(--panel-border); background: #fff; font-family: 'DM Sans', sans-serif; font-size: 0.8rem; font-weight: 500; cursor: pointer; transition: background 0.12s; }
+  .modal-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .modal-btn.primary:hover { background: var(--accent-light); }
+  .modal-btn:not(.primary):not(.danger-modal):hover { background: var(--cork-light); }
+  .modal-btn.danger-modal { background: #dc2626; color: #fff; border-color: #dc2626; }
+  .modal-btn.danger-modal:hover { background: #b91c1c; }
+
+  /* Floating annotation toggle */
+  #annot-toggle-btn {
+    position: fixed; bottom: 34px; right: 210px;
+    background: var(--toolbar-bg); color: var(--cork-light);
+    border: 1px solid rgba(255,255,255,0.15); border-radius: 20px;
+    padding: 5px 13px; font-size: 0.73rem; font-weight: 600;
+    cursor: pointer; display: flex; align-items: center; gap: 5px;
+    z-index: 60; box-shadow: var(--shadow-md); transition: background 0.15s;
+  }
+  #annot-toggle-btn:hover { background: #3d2c14; }
+  #annot-toggle-btn.hidden { display: none; }
+
+  /* ===== HTML STICKY NOTES ===== */
+  #sticky-layer {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;   /* notes themselves re-enable pointer-events */
+    z-index: 50;
+  }
+
+  .sticky-note {
+    position: absolute;
+    width: 200px;
+    min-height: 130px;
+    background: #fef08a;
+    border-radius: 4px;
+    box-shadow: 3px 4px 12px rgba(0,0,0,0.22);
+    display: flex;
+    flex-direction: column;
+    pointer-events: all;
+    cursor: default;
+    user-select: none;
+  }
+
+  .sticky-note.selected { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .sticky-header {
+    background: #fbbf24;
+    border-radius: 4px 4px 0 0;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 8px;
+    cursor: grab;
+    flex-shrink: 0;
+  }
+
+  .sticky-header:active { cursor: grabbing; }
+
+  .sticky-header-label {
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #78350f;
+    pointer-events: none;
+  }
+
+  .sticky-close {
+    width: 16px; height: 16px;
+    border: none; background: rgba(0,0,0,0.12);
+    border-radius: 50%; cursor: pointer;
+    color: #78350f; font-size: 0.65rem;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.12s;
+    flex-shrink: 0;
+  }
+
+  .sticky-close:hover { background: rgba(0,0,0,0.28); }
+
+  .sticky-body {
+    flex: 1;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sticky-textarea {
+    flex: 1;
+    width: 100%;
+    min-height: 90px;
+    border: none;
+    background: transparent;
+    resize: none;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #3d2c00;
+    outline: none;
+    cursor: text;
+    padding: 0;
+  }
+
+  .sticky-resize-handle {
+    position: absolute;
+    right: 0; bottom: 0;
+    width: 14px; height: 14px;
+    cursor: nwse-resize;
+    opacity: 0.4;
+  }
+
+  .sticky-resize-handle::after {
+    content: '';
+    position: absolute;
+    right: 3px; bottom: 3px;
+    width: 6px; height: 6px;
+    border-right: 2px solid #78350f;
+    border-bottom: 2px solid #78350f;
+  }
+
+  /* ===== KEYBOARD SHORTCUTS MODAL ===== */
+  #modal-shortcuts .modal { max-width: 520px; }
+  .shortcuts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 24px;
+  }
+  .shortcuts-section { margin-bottom: 14px; }
+  .shortcuts-section-title {
+    font-size: 0.62rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid var(--panel-border);
+  }
+  .shortcut-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 3px 0;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    gap: 10px;
+  }
+  .shortcut-row span:first-child { flex: 1; }
+  .kbd {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+  .key {
+    display: inline-block;
+    padding: 2px 7px;
+    background: #fff;
+    border: 1px solid var(--panel-border);
+    border-bottom: 2px solid var(--panel-border);
+    border-radius: 4px;
+    font-family: 'DM Sans', monospace;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    min-width: 22px;
+    text-align: center;
+  }
+
+  ::-webkit-scrollbar { width: 5px; height: 5px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--panel-border); border-radius: 3px; }
+
+  @media (max-width: 900px) { #app-subtitle { display: none; } #props-panel { width: 160px; } }
+  @media (max-width: 700px) { #props-panel { display: none; } #toolbar { width: 50px; } .tool-btn { width: 38px; height: 38px; } #annot-toggle-btn { right: 10px; } }
+</style>
+</head>
+<body>
+
+<!-- ===== TOP BAR ===== -->
+<div id="topbar">
+  <div id="app-title">
+    <span class="pin-icon">📌</span>
+    Cork Board
+    <span id="app-subtitle">Upload. Mark up. Point things out.</span>
+  </div>
+  <div class="topbar-sep"></div>
+  <button class="topbar-btn" id="btn-upload-top">📁 Upload</button>
+  <input type="file" id="file-input" accept="image/png,image/jpeg,image/jpg,image/webp" multiple style="display:none">
+  <div class="topbar-sep"></div>
+  <button class="topbar-btn" id="btn-save">💾 Save</button>
+  <button class="topbar-btn" id="btn-load-json">📂 Load</button>
+  <input type="file" id="json-input" accept=".json" style="display:none">
+  <div class="topbar-sep"></div>
+  <button class="topbar-btn danger-btn" id="btn-remove-image" style="display:none">🗑 Remove Image</button>
+  <button class="topbar-btn" id="btn-shortcuts" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>
+  <div class="topbar-spacer"></div>
+  <div id="presentation-mode-indicator"><span>●</span> Presentation</div>
+  <button class="topbar-btn" id="btn-present">🎓 Present</button>
+  <button class="topbar-btn" id="btn-exit-present" style="display:none">✕ Exit Presentation</button>
+  <button class="topbar-btn accent" id="btn-export">⬇ Export PNG</button>
+</div>
+
+<!-- ===== MAIN LAYOUT ===== -->
+<div id="main-layout">
+
+  <!-- LEFT TOOLBAR -->
+  <div id="toolbar">
+    <button class="tool-btn active" id="tool-select" title="Select / Move (V)" data-tool="select">
+      <span>↖</span><span class="tool-label">Select</span>
+    </button>
+    <button class="tool-btn" id="tool-pan" title="Hand / Pan (M or hold Space)" data-tool="pan">
+      <span>✋</span><span class="tool-label">Pan</span>
+    </button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" id="tool-pen" title="Pen / Freehand (P)" data-tool="pen">
+      <span>✏️</span><span class="tool-label">Pen</span>
+    </button>
+    <button class="tool-btn" id="tool-highlighter" title="Highlighter (H)" data-tool="highlighter">
+      <span>🖍</span><span class="tool-label">Hi-lite</span>
+    </button>
+    <button class="tool-btn" id="tool-arrow" title="Arrow (A)" data-tool="arrow">
+      <span>➡</span><span class="tool-label">Arrow</span>
+    </button>
+    <button class="tool-btn" id="tool-rect" title="Rectangle (R)" data-tool="rect">
+      <span>▭</span><span class="tool-label">Rect</span>
+    </button>
+    <button class="tool-btn" id="tool-circle" title="Circle / Ellipse (C)" data-tool="circle">
+      <span>◯</span><span class="tool-label">Circle</span>
+    </button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" id="tool-text" title="Text Label (T)" data-tool="text">
+      <span>𝐓</span><span class="tool-label">Text</span>
+    </button>
+    <button class="tool-btn" id="tool-sticky" title="Sticky Note (N)" data-tool="sticky">
+      <span>📒</span><span class="tool-label">Note</span>
+    </button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" id="tool-crop" title="Crop Image (X) — drag to select region" data-tool="crop">
+      <span>✂️</span><span class="tool-label">Crop</span>
+    </button>
+    <button class="tool-btn" id="tool-laser" title="Laser Pointer (L)" data-tool="laser">
+      <span>🔴</span><span class="tool-label">Laser</span>
+    </button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" id="btn-undo" title="Undo (Ctrl+Z)">
+      <span>↩</span><span class="tool-label">Undo</span>
+    </button>
+    <button class="tool-btn" id="btn-redo" title="Redo (Ctrl+Y)">
+      <span>↪</span><span class="tool-label">Redo</span>
+    </button>
+    <div class="tool-sep"></div>
+    <button class="tool-btn" id="btn-delete" title="Delete selected (Delete)">
+      <span>🗑</span><span class="tool-label">Delete</span>
+    </button>
+    <button class="tool-btn" id="btn-clear" title="Clear all annotations">
+      <span>🧹</span><span class="tool-label">Clear</span>
+    </button>
+  </div>
+
+  <!-- WORKSPACE -->
+  <div id="workspace">
+    <div id="laser-overlay"><canvas id="laser-canvas"></canvas></div>
+
+    <!-- Crop floating toolbar -->
+    <div id="crop-ui">
+      <span>✂️ Drag to mark crop region</span>
+      <button class="crop-ui-btn apply" id="btn-crop-apply">Apply Crop</button>
+      <button class="crop-ui-btn" id="btn-crop-cancel">Cancel</button>
+    </div>
+
+    <!-- HTML sticky notes layer — real textarea editing, sits above canvas -->
+    <div id="sticky-layer"></div>
+
+    <!-- Crop overlay canvas — full workspace, not clipped by canvas-wrapper -->
+    <canvas id="crop-overlay-canvas"></canvas>
+
+    <div id="canvas-container">
+      <div id="canvas-wrapper">
+        <canvas id="main-canvas"></canvas>
+      </div>
+    </div>
+
+    <!-- Empty state -->
+    <div id="empty-state">
+      <div class="empty-inner" id="empty-drop-zone">
+        <div class="empty-pin">📌</div>
+        <div class="empty-title">Cork Board</div>
+        <p class="empty-sub">Upload a gallery wall photo to start marking up. Drag & drop here or click below.</p>
+        <button class="empty-upload-btn" id="btn-upload-empty">📁 Choose Image(s)</button>
+        <p class="empty-batch-hint">Select multiple images at once to build a batch session.</p>
+      </div>
+    </div>
+
+    <!-- Filmstrip (batch mode) -->
+    <div id="filmstrip">
+      <span id="filmstrip-label">Images</span>
+      <button class="film-add-btn" id="film-add-btn" title="Add more images">+</button>
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="props-panel">
+    <div class="panel-section">
+      <div class="panel-section-title">Color</div>
+      <div class="prop-row">
+        <label class="prop-label">Stroke</label>
+        <input type="color" class="prop-input" id="prop-stroke" value="#e05c2a">
+      </div>
+      <div class="prop-row">
+        <label class="prop-label">Fill</label>
+        <input type="color" class="prop-input" id="prop-fill" value="#ffffff">
+      </div>
+      <div class="color-swatches" id="color-swatches"></div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Stroke & Opacity</div>
+      <div class="prop-row">
+        <label class="prop-label">Width</label>
+        <input type="range" class="prop-range" id="prop-stroke-width" min="1" max="40" value="3">
+        <span class="prop-value" id="stroke-width-val">3</span>
+      </div>
+      <div class="prop-row">
+        <label class="prop-label">Opacity</label>
+        <input type="range" class="prop-range" id="prop-opacity" min="5" max="100" value="100">
+        <span class="prop-value" id="opacity-val">100%</span>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Font</div>
+      <div class="prop-row">
+        <label class="prop-label">Size</label>
+        <input type="number" class="prop-input" id="prop-font-size" value="22" min="8" max="120" style="width:54px">
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Zoom</div>
+      <div class="zoom-row">
+        <button class="zoom-btn" id="btn-zoom-out">−</button>
+        <span class="zoom-label" id="zoom-label">100%</span>
+        <button class="zoom-btn" id="btn-zoom-in">+</button>
+      </div>
+      <div style="margin-top:7px">
+        <button class="panel-btn" id="btn-zoom-reset" style="justify-content:center">⊡ Reset View</button>
+      </div>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Annotations</div>
+      <button class="panel-btn" id="btn-toggle-annot">👁 Hide Annotations</button>
+      <button class="panel-btn" id="btn-fullscreen">⛶ Fullscreen</button>
+      <button class="panel-btn danger" id="btn-clear-panel">🧹 Clear Annotations</button>
+    </div>
+
+    <div class="panel-section">
+      <div class="panel-section-title">Image</div>
+      <button class="panel-btn danger" id="btn-remove-image-panel">🗑 Remove Image</button>
+    </div>
+  </div>
+</div>
+
+<!-- Floating annotation toggle (presentation mode) -->
+<button id="annot-toggle-btn" class="hidden">👁 Annotations: ON</button>
+
+<!-- STATUS BAR -->
+<div id="statusbar">
+  <span id="status-tool">Tool: Select</span>
+  <span id="status-coords">x: — y: —</span>
+  <span id="status-objects">Objects: 0</span>
+  <span id="status-image">No image loaded</span>
+</div>
+
+<!-- MODALS -->
+<div class="modal-backdrop" id="modal-clear">
+  <div class="modal">
+    <h2>Clear all annotations?</h2>
+    <p>This removes all drawings, shapes, text and sticky notes from the current image. The image stays. You can undo with Ctrl+Z.</p>
+    <div class="modal-btns">
+      <button class="modal-btn" id="modal-clear-cancel">Cancel</button>
+      <button class="modal-btn primary" id="modal-clear-confirm">Clear</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-backdrop" id="modal-remove-image">
+  <div class="modal">
+    <h2>Remove this image?</h2>
+    <p>The current image <strong>and all its annotations</strong> will be removed. If you have multiple images in the session, the next one becomes active. This cannot be undone.</p>
+    <div class="modal-btns">
+      <button class="modal-btn" id="modal-remove-cancel">Cancel</button>
+      <button class="modal-btn danger-modal" id="modal-remove-confirm">Remove</button>
+    </div>
+  </div>
+</div>
+
+<!-- KEYBOARD SHORTCUTS MODAL -->
+<div class="modal-backdrop" id="modal-shortcuts">
+  <div class="modal" style="max-width:540px">
+    <h2>⌨ Keyboard Shortcuts</h2>
+    <div class="shortcuts-grid">
+
+      <div class="shortcuts-section">
+        <div class="shortcuts-section-title">Tools</div>
+        <div class="shortcut-row"><span>Select / Move</span><span class="kbd"><span class="key">V</span></span></div>
+        <div class="shortcut-row"><span>Hand / Pan</span><span class="kbd"><span class="key">M</span></span></div>
+        <div class="shortcut-row"><span>Pan (temporary)</span><span class="kbd"><span class="key">Space</span></span></div>
+        <div class="shortcut-row"><span>Pen / Freehand</span><span class="kbd"><span class="key">P</span></span></div>
+        <div class="shortcut-row"><span>Highlighter</span><span class="kbd"><span class="key">H</span></span></div>
+        <div class="shortcut-row"><span>Arrow</span><span class="kbd"><span class="key">A</span></span></div>
+        <div class="shortcut-row"><span>Rectangle</span><span class="kbd"><span class="key">R</span></span></div>
+        <div class="shortcut-row"><span>Circle / Ellipse</span><span class="kbd"><span class="key">C</span></span></div>
+        <div class="shortcut-row"><span>Text Label</span><span class="kbd"><span class="key">T</span></span></div>
+        <div class="shortcut-row"><span>Sticky Note</span><span class="kbd"><span class="key">N</span></span></div>
+        <div class="shortcut-row"><span>Crop Image</span><span class="kbd"><span class="key">X</span></span></div>
+        <div class="shortcut-row"><span>Laser Pointer</span><span class="kbd"><span class="key">L</span></span></div>
+      </div>
+
+      <div>
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Edit</div>
+          <div class="shortcut-row"><span>Undo</span><span class="kbd"><span class="key">Ctrl</span>+<span class="key">Z</span></span></div>
+          <div class="shortcut-row"><span>Redo</span><span class="kbd"><span class="key">Ctrl</span>+<span class="key">Y</span></span></div>
+          <div class="shortcut-row"><span>Delete selected</span><span class="kbd"><span class="key">Del</span></span></div>
+        </div>
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">View</div>
+          <div class="shortcut-row"><span>Zoom in / out</span><span class="kbd"><span class="key">Scroll</span></span></div>
+          <div class="shortcut-row"><span>Pan canvas</span><span class="kbd"><span class="key">Alt</span>+<span class="key">Drag</span></span></div>
+        </div>
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">General</div>
+          <div class="shortcut-row"><span>Cancel / Exit mode</span><span class="kbd"><span class="key">Esc</span></span></div>
+          <div class="shortcut-row"><span>This shortcuts panel</span><span class="kbd"><span class="key">?</span></span></div>
+        </div>
+        <div class="shortcuts-section">
+          <div class="shortcuts-section-title">Tips</div>
+          <div style="font-size:0.74rem;color:var(--text-muted);line-height:1.6">
+            Double-click a sticky note to edit its text.<br>
+            Alt+drag always pans regardless of active tool.<br>
+            Hold Space to temporarily switch to the pan tool.
+          </div>
+        </div>
+      </div>
+
+    </div>
+    <div class="modal-btns" style="margin-top:16px">
+      <button class="modal-btn primary" id="modal-shortcuts-close">Got it</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =============================================
+   CORK BOARD v2 — Application Script
+
+   CUSTOMIZATION QUICK REFERENCE
+   ─────────────────────────────
+   App name / subtitle  → HTML #app-title
+   Brand colors         → CSS :root variables at top of <style>
+   Default stroke color → state.strokeColor
+   Color swatches       → swatchColors array
+   Laser color/glow     → laserAnimate() function
+   Keyboard shortcuts   → toolMap object
+============================================= */
+
+'use strict';
+
+// ─────────────────────────────────────────────
+// STATE
+// ─────────────────────────────────────────────
+const state = {
+  tool: 'select',
+  prevTool: 'select',   // for spacebar pan toggle
+  strokeColor: '#e05c2a',
+  fillColor: 'transparent',
+  strokeWidth: 3,
+  opacity: 1,
+  fontSize: 22,
+  zoom: 1,
+  imageLoaded: false,
+  annotationsVisible: true,
+  isPresentMode: false,
+  history: [],
+  historyIndex: -1,
+  // Batch
+  images: [],            // [{dataURL, filename, annotations}]
+  activeImageIndex: -1,
+  // Crop
+  isCropping: false,
+  cropStart: null,
+  cropEnd: null,
+  cropMouseDown: false,
+};
+
+// ─────────────────────────────────────────────
+// CANVAS INIT
+// ─────────────────────────────────────────────
+const fabricCanvas = new fabric.Canvas('main-canvas', {
+  selection: true,
+  preserveObjectStacking: true,
+  stopContextMenu: true,
+});
+
+function getFilmstripHeight() {
+  return state.images.length > 1
+    ? parseInt(getComputedStyle(document.documentElement).getPropertyValue('--filmstrip-h'))
+    : 0;
+}
+
+function resizeCanvas() {
+  const ws = document.getElementById('workspace');
+  fabricCanvas.setWidth(ws.clientWidth);
+  fabricCanvas.setHeight(ws.clientHeight - getFilmstripHeight());
+}
+
+// ─────────────────────────────────────────────
+// LASER POINTER
+// ─────────────────────────────────────────────
+const laserOverlay = document.getElementById('laser-overlay');
+const laserCanvas  = document.getElementById('laser-canvas');
+const laserCtx     = laserCanvas.getContext('2d');
+let laserAnimFrame = null;
+let laserDots = [];
+
+function resizeLaserCanvas() {
+  const ws = document.getElementById('workspace');
+  laserCanvas.width  = ws.clientWidth;
+  laserCanvas.height = ws.clientHeight;
+}
+
+function laserDraw(x, y) {
+  laserDots.push({ x, y, age: 0 });
+  if (laserDots.length > 32) laserDots.shift();
+}
+
+function laserAnimate() {
+  laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+  laserDots.forEach(dot => {
+    dot.age++;
+    const alpha  = Math.max(0, 1 - dot.age / 22);
+    const radius = 7;
+    const grd = laserCtx.createRadialGradient(dot.x, dot.y, 0, dot.x, dot.y, radius * 3.5);
+    grd.addColorStop(0, `rgba(255,30,30,${alpha * 0.65})`);
+    grd.addColorStop(1, 'rgba(255,0,0,0)');
+    laserCtx.beginPath();
+    laserCtx.arc(dot.x, dot.y, radius * 3.5, 0, Math.PI * 2);
+    laserCtx.fillStyle = grd;
+    laserCtx.fill();
+    laserCtx.beginPath();
+    laserCtx.arc(dot.x, dot.y, radius, 0, Math.PI * 2);
+    laserCtx.fillStyle = `rgba(255,30,30,${alpha})`;
+    laserCtx.fill();
+  });
+  laserDots = laserDots.filter(d => d.age < 22);
+  laserAnimFrame = requestAnimationFrame(laserAnimate);
+}
+
+function startLaser() {
+  laserOverlay.style.display = 'block';
+  laserDots = [];
+  laserAnimate();
+  document.getElementById('workspace').style.cursor = 'none';
+}
+
+function stopLaser() {
+  laserOverlay.style.display = 'none';
+  laserDots = [];
+  if (laserAnimFrame) cancelAnimationFrame(laserAnimFrame);
+  laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
+  document.getElementById('workspace').style.cursor = '';
+}
+
+// ─────────────────────────────────────────────
+// TOOL MANAGEMENT
+// ─────────────────────────────────────────────
+const TOOL_NAMES = {
+  select:'Select / Move', pan:'Hand / Pan',
+  pen:'Pen', highlighter:'Highlighter',
+  arrow:'Arrow', rect:'Rectangle', circle:'Circle',
+  text:'Text Label', sticky:'Sticky Note',
+  crop:'Crop Image', laser:'Laser Pointer',
+};
+
+function setTool(tool) {
+  if (state.isCropping && tool !== 'crop') exitCrop();
+  document.querySelectorAll('.tool-btn[data-tool]').forEach(b => b.classList.remove('active','laser-active'));
+  const btn = document.getElementById('tool-' + tool);
+  if (btn) btn.classList.add(tool === 'laser' ? 'laser-active' : 'active');
+  if (state.tool === 'laser' && tool !== 'laser') stopLaser();
+  state.tool = tool;
+  updateStatus('tool', TOOL_NAMES[tool] || tool);
+
+  fabricCanvas.isDrawingMode = false;
+  fabricCanvas.selection = false;
+  fabricCanvas.defaultCursor = 'default';
+
+  switch (tool) {
+    case 'select':
+      fabricCanvas.selection = true;
+      fabricCanvas.defaultCursor = 'default';
+      break;
+    case 'pan':
+      fabricCanvas.defaultCursor = 'grab';
+      break;
+    case 'pen':
+      fabricCanvas.isDrawingMode = true;
+      fabricCanvas.freeDrawingBrush.color = state.strokeColor;
+      fabricCanvas.freeDrawingBrush.width = state.strokeWidth;
+      break;
+    case 'highlighter':
+      fabricCanvas.isDrawingMode = true;
+      fabricCanvas.freeDrawingBrush.color = state.strokeColor;
+      fabricCanvas.freeDrawingBrush.width = Math.max(state.strokeWidth, 16);
+      fabricCanvas.freeDrawingBrush.opacity = 0.35;
+      break;
+    case 'crop':
+      fabricCanvas.defaultCursor = 'crosshair';
+      enterCrop();
+      break;
+    case 'laser':
+      fabricCanvas.defaultCursor = 'none';
+      startLaser();
+      break;
+    default:
+      fabricCanvas.defaultCursor = 'crosshair';
+      break;
+  }
+}
+
+// ─────────────────────────────────────────────
+// PAN / HAND TOOL
+// ─────────────────────────────────────────────
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+let panVptOrigin = { x: 0, y: 0 };
+
+fabricCanvas.on('mouse:down', function(opt) {
+  // Pan tool or Alt+drag always pans
+  if (state.tool === 'pan' || opt.e.altKey) {
+    isPanning = true;
+    panStart = { x: opt.e.clientX, y: opt.e.clientY };
+    const vpt = fabricCanvas.viewportTransform;
+    panVptOrigin = { x: vpt[4], y: vpt[5] };
+    fabricCanvas.selection = false;
+    fabricCanvas.defaultCursor = 'grabbing';
+    document.getElementById('workspace').style.cursor = 'grabbing';
+    return;
+  }
+  handleShapeMouseDown(opt);
+});
+
+fabricCanvas.on('mouse:move', function(opt) {
+  if (state.tool === 'laser') {
+    const ws   = document.getElementById('workspace');
+    const rect = ws.getBoundingClientRect();
+    if (opt.e) laserDraw(opt.e.clientX - rect.left, opt.e.clientY - rect.top);
+    return;
+  }
+  if (isPanning) {
+    const dx = opt.e.clientX - panStart.x;
+    const dy = opt.e.clientY - panStart.y;
+    fabricCanvas.absolutePan({ x: -(panVptOrigin.x + dx), y: -(panVptOrigin.y + dy) });
+    return;
+  }
+  handleShapeMouseMove(opt);
+  const ptr = fabricCanvas.getPointer(opt.e);
+  updateStatus('coords', `x: ${Math.round(ptr.x)}  y: ${Math.round(ptr.y)}`);
+});
+
+fabricCanvas.on('mouse:up', function(opt) {
+  if (isPanning) {
+    isPanning = false;
+    fabricCanvas.defaultCursor = state.tool === 'pan' ? 'grab' : 'default';
+    document.getElementById('workspace').style.cursor = '';
+    if (state.tool === 'select') fabricCanvas.selection = true;
+    return;
+  }
+  handleShapeMouseUp(opt);
+});
+
+// ─────────────────────────────────────────────
+// SHAPE DRAWING
+// ─────────────────────────────────────────────
+let drawingShape = false;
+let shapeOrigin  = { x: 0, y: 0 };
+let tempShape    = null;
+
+function handleShapeMouseDown(opt) {
+  if (['select','pen','highlighter','laser','pan','crop'].includes(state.tool)) return;
+  if (fabricCanvas.isDrawingMode) return;
+  const pointer = fabricCanvas.getPointer(opt.e);
+  shapeOrigin = { x: pointer.x, y: pointer.y };
+  if (state.tool === 'text')   { addText(pointer.x, pointer.y);   return; }
+  if (state.tool === 'sticky') { addSticky(pointer.x, pointer.y); return; }
+  drawingShape = true;
+  const props = {
+    left: pointer.x, top: pointer.y,
+    stroke: state.strokeColor, strokeWidth: state.strokeWidth,
+    fill: (state.tool === 'rect' || state.tool === 'circle') ? hexToRgba(state.fillColor, state.opacity) : 'transparent',
+    opacity: state.tool === 'arrow' ? state.opacity : 1,
+    selectable: false, evented: false, originX: 'left', originY: 'top',
+  };
+  if      (state.tool === 'rect')   tempShape = new fabric.Rect({ ...props, width: 1, height: 1 });
+  else if (state.tool === 'circle') tempShape = new fabric.Ellipse({ ...props, rx: 1, ry: 1 });
+  else if (state.tool === 'arrow')  tempShape = createArrow(pointer.x, pointer.y, pointer.x, pointer.y);
+  if (tempShape) fabricCanvas.add(tempShape);
+}
+
+function handleShapeMouseMove(opt) {
+  if (!drawingShape || !tempShape) return;
+  const pointer = fabricCanvas.getPointer(opt.e);
+  const dx = pointer.x - shapeOrigin.x, dy = pointer.y - shapeOrigin.y;
+  if (state.tool === 'rect') {
+    tempShape.set({ left: dx<0?pointer.x:shapeOrigin.x, top: dy<0?pointer.y:shapeOrigin.y, width: Math.abs(dx), height: Math.abs(dy) });
+  } else if (state.tool === 'circle') {
+    tempShape.set({ left: dx<0?pointer.x:shapeOrigin.x, top: dy<0?pointer.y:shapeOrigin.y, rx: Math.abs(dx)/2, ry: Math.abs(dy)/2 });
+  } else if (state.tool === 'arrow') {
+    fabricCanvas.remove(tempShape);
+    tempShape = createArrow(shapeOrigin.x, shapeOrigin.y, pointer.x, pointer.y);
+    fabricCanvas.add(tempShape);
+  }
+  fabricCanvas.renderAll();
+}
+
+function handleShapeMouseUp() {
+  if (!drawingShape || !tempShape) return;
+  drawingShape = false;
+  tempShape.set({ selectable: true, evented: true });
+  fabricCanvas.setActiveObject(tempShape);
+  tempShape = null;
+  fabricCanvas.renderAll();
+  saveHistory();
+}
+
+function createArrow(x1, y1, x2, y2) {
+  const angle   = Math.atan2(y2 - y1, x2 - x1);
+  const headLen = Math.max(12, state.strokeWidth * 4);
+  const line    = new fabric.Line([x1,y1,x2,y2], { stroke: state.strokeColor, strokeWidth: state.strokeWidth, selectable: false, evented: false });
+  const head    = new fabric.Triangle({ width: headLen, height: headLen, fill: state.strokeColor, left: x2, top: y2, angle: (angle*180/Math.PI)+90, originX:'center', originY:'center', selectable: false, evented: false });
+  const group   = new fabric.Group([line, head], { selectable: true, evented: true, opacity: state.opacity });
+  group.coreBoardType = 'arrow';
+  return group;
+}
+
+// ─────────────────────────────────────────────
+// TEXT & STICKY NOTES
+// ─────────────────────────────────────────────
+function addText(x, y) {
+  const t = new fabric.IText('Click to edit', {
+    left: x, top: y, fontFamily: 'DM Sans, sans-serif',
+    fontSize: state.fontSize, fill: state.strokeColor, opacity: state.opacity,
+    editable: true, selectable: true, coreBoardType: 'text',
+  });
+  fabricCanvas.add(t);
+  fabricCanvas.setActiveObject(t);
+  t.enterEditing(); t.selectAll();
+  fabricCanvas.renderAll();
+  saveHistory();
+}
+
+// ─────────────────────────────────────────────
+// HTML STICKY NOTES
+// Sticky notes live as HTML elements over the canvas.
+// They are serialized separately from Fabric objects.
+// ─────────────────────────────────────────────
+let _stickyIdCounter = 0;
+const _stickyNotes   = [];   // [{id, el, x, y, w, h, text, color}]
+
+function addSticky(canvasX, canvasY) {
+  // canvasX/Y are Fabric canvas internal coords — convert to workspace display px
+  const wrapRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
+  const wsRect   = document.getElementById('workspace').getBoundingClientRect();
+  const zoom     = fabricCanvas.getZoom();
+  const vpt      = fabricCanvas.viewportTransform;
+
+  // Fabric internal → display pixels (accounting for zoom/pan)
+  const dispX = (canvasX * zoom + vpt[4]) * (wrapRect.width  / fabricCanvas.width)  + (wrapRect.left - wsRect.left);
+  const dispY = (canvasY * zoom + vpt[5]) * (wrapRect.height / fabricCanvas.height) + (wrapRect.top  - wsRect.top);
+
+  _createStickyNote({
+    id: ++_stickyIdCounter,
+    x: dispX, y: dispY,
+    w: 200, h: 140,
+    text: '',
+    color: '#fef08a',
+  }, true);
+}
+
+function _createStickyNote(data, focusOnCreate) {
+  const { id, x, y, w, h, text, color } = data;
+
+  const el = document.createElement('div');
+  el.className = 'sticky-note';
+  el.dataset.stickyId = id;
+  el.style.left   = x + 'px';
+  el.style.top    = y + 'px';
+  el.style.width  = w + 'px';
+  el.style.minHeight = h + 'px';
+  if (color && color !== '#fef08a') el.style.background = color;
+
+  el.innerHTML = `
+    <div class="sticky-header" title="Drag to move">
+      <span class="sticky-header-label">📒 Note</span>
+      <button class="sticky-close" title="Delete note">✕</button>
+    </div>
+    <div class="sticky-body">
+      <textarea class="sticky-textarea" placeholder="Type your note here…" spellcheck="true">${_escapeHtml(text)}</textarea>
+    </div>
+    <div class="sticky-resize-handle" title="Resize"></div>
+  `;
+
+  // ── Drag from header ──
+  const header = el.querySelector('.sticky-header');
+  let dragging = false, dragOffX = 0, dragOffY = 0;
+
+  header.addEventListener('mousedown', e => {
+    if (e.target.classList.contains('sticky-close')) return;
+    dragging = true;
+    dragOffX = e.clientX - el.getBoundingClientRect().left;
+    dragOffY = e.clientY - el.getBoundingClientRect().top;
+    el.style.zIndex = 9999;
+    e.preventDefault();
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!dragging) return;
+    const wsRect = document.getElementById('workspace').getBoundingClientRect();
+    el.style.left = (e.clientX - wsRect.left - dragOffX) + 'px';
+    el.style.top  = (e.clientY - wsRect.top  - dragOffY) + 'px';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!dragging) return;
+    dragging = false;
+    el.style.zIndex = '';
+    _syncStickyData(id);
+    saveHistory();
+  });
+
+  // ── Resize handle ──
+  const resizeHandle = el.querySelector('.sticky-resize-handle');
+  let resizing = false, resizeStartX = 0, resizeStartY = 0, resizeStartW = 0, resizeStartH = 0;
+
+  resizeHandle.addEventListener('mousedown', e => {
+    resizing = true;
+    resizeStartX = e.clientX;
+    resizeStartY = e.clientY;
+    resizeStartW = el.offsetWidth;
+    resizeStartH = el.offsetHeight;
+    e.preventDefault();
+    e.stopPropagation();
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!resizing) return;
+    const newW = Math.max(120, resizeStartW + (e.clientX - resizeStartX));
+    const newH = Math.max( 80, resizeStartH + (e.clientY - resizeStartY));
+    el.style.width    = newW + 'px';
+    el.style.minHeight = newH + 'px';
+  });
+
+  window.addEventListener('mouseup', () => {
+    if (!resizing) return;
+    resizing = false;
+    _syncStickyData(id);
+    saveHistory();
+  });
+
+  // ── Close button ──
+  el.querySelector('.sticky-close').addEventListener('click', () => {
+    _removeStickyById(id);
+    saveHistory();
+  });
+
+  // ── Text change ──
+  const textarea = el.querySelector('.sticky-textarea');
+  textarea.addEventListener('input', () => {
+    _syncStickyData(id);
+    saveHistory();
+  });
+
+  // ── Click to select (visual) ──
+  el.addEventListener('mousedown', () => {
+    document.querySelectorAll('.sticky-note').forEach(n => n.classList.remove('selected'));
+    el.classList.add('selected');
+    fabricCanvas.discardActiveObject();
+    fabricCanvas.renderAll();
+  });
+
+  document.getElementById('sticky-layer').appendChild(el);
+
+  // Track it
+  const entry = { id, el, x, y, w, h, text, color: color || '#fef08a' };
+  _stickyNotes.push(entry);
+
+  if (focusOnCreate) {
+    requestAnimationFrame(() => {
+      textarea.focus();
+      saveHistory();
+    });
+  }
+
+  return entry;
+}
+
+function _syncStickyData(id) {
+  const entry = _stickyNotes.find(n => n.id === id);
+  if (!entry) return;
+  const el = entry.el;
+  const wsRect = document.getElementById('workspace').getBoundingClientRect();
+  const elRect = el.getBoundingClientRect();
+  entry.x    = elRect.left - wsRect.left;
+  entry.y    = elRect.top  - wsRect.top;
+  entry.w    = el.offsetWidth;
+  entry.h    = el.offsetHeight;
+  entry.text = el.querySelector('.sticky-textarea').value;
+}
+
+function _removeStickyById(id) {
+  const idx = _stickyNotes.findIndex(n => n.id === id);
+  if (idx < 0) return;
+  _stickyNotes[idx].el.remove();
+  _stickyNotes.splice(idx, 1);
+}
+
+function _clearAllStickies() {
+  _stickyNotes.forEach(n => n.el.remove());
+  _stickyNotes.length = 0;
+}
+
+function _escapeHtml(str) {
+  return (str || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function getStickiesJSON() {
+  // Sync all before serializing
+  _stickyNotes.forEach(n => _syncStickyData(n.id));
+  return JSON.stringify(_stickyNotes.map(({ id, x, y, w, h, text, color }) => ({ id, x, y, w, h, text, color })));
+}
+
+function loadStickiesJSON(json) {
+  _clearAllStickies();
+  if (!json || json === '[]') return;
+  let data;
+  try { data = JSON.parse(json); } catch { return; }
+  data.forEach(d => {
+    if (d.id >= _stickyIdCounter) _stickyIdCounter = d.id + 1;
+    _createStickyNote(d, false);
+  });
+}
+
+// Delete any selected sticky when Delete key pressed
+function deleteSelectedSticky() {
+  const sel = document.querySelector('.sticky-note.selected');
+  if (sel) {
+    const id = parseInt(sel.dataset.stickyId);
+    _removeStickyById(id);
+    saveHistory();
+    return true;
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────
+// CROP TOOL  (canvas overlay, outside canvas-wrapper so no clipping)
+// ─────────────────────────────────────────────
+const cropOverlayEl  = document.getElementById('crop-overlay-canvas');
+const cropOverlayCtx = cropOverlayEl.getContext('2d');
+
+function sizeCropOverlay() {
+  const ws = document.getElementById('workspace');
+  cropOverlayEl.width  = ws.clientWidth;
+  cropOverlayEl.height = ws.clientHeight;
+}
+
+function enterCrop() {
+  if (!state.imageLoaded) { setTool('select'); return; }
+  state.isCropping     = true;
+  state.cropStart      = null;   // stored in FABRIC internal coords
+  state.cropEnd        = null;
+  state.cropMouseDown  = false;
+  sizeCropOverlay();
+  cropOverlayEl.classList.add('active');
+  document.getElementById('crop-ui').classList.add('visible');
+  // Let the Fabric canvas receive pointer events — we hook into Fabric's mouse events
+  cropOverlayEl.style.pointerEvents = 'none';
+  fabricCanvas.selection   = false;
+  fabricCanvas.isDrawingMode = false;
+  fabricCanvas.defaultCursor = 'crosshair';
+  // Hook Fabric mouse events so getPointer() handles all zoom/pan/DPI for free
+  fabricCanvas.on('mouse:down',  _cropFabricDown);
+  fabricCanvas.on('mouse:move',  _cropFabricMove);
+  fabricCanvas.on('mouse:up',    _cropFabricUp);
+  drawCropOverlay();
+}
+
+function exitCrop() {
+  state.isCropping    = false;
+  state.cropStart     = null;
+  state.cropEnd       = null;
+  state.cropMouseDown = false;
+  cropOverlayEl.classList.remove('active');
+  cropOverlayEl.style.pointerEvents = 'none';
+  document.getElementById('crop-ui').classList.remove('visible');
+  cropOverlayCtx.clearRect(0, 0, cropOverlayEl.width, cropOverlayEl.height);
+  fabricCanvas.off('mouse:down',  _cropFabricDown);
+  fabricCanvas.off('mouse:move',  _cropFabricMove);
+  fabricCanvas.off('mouse:up',    _cropFabricUp);
+  fabricCanvas.defaultCursor = 'default';
+}
+
+function _cropFabricDown(opt) {
+  if (opt.e.button !== 0) return;
+  const ptr = fabricCanvas.getPointer(opt.e);
+  state.cropStart     = { x: ptr.x, y: ptr.y };
+  state.cropEnd       = { x: ptr.x, y: ptr.y };
+  state.cropMouseDown = true;
+  opt.e.preventDefault();
+}
+
+function _cropFabricMove(opt) {
+  if (!state.cropMouseDown) return;
+  const ptr = fabricCanvas.getPointer(opt.e);
+  state.cropEnd = { x: ptr.x, y: ptr.y };
+  drawCropOverlay();
+}
+
+function _cropFabricUp() {
+  state.cropMouseDown = false;
+}
+
+// Convert a Fabric internal coord → overlay canvas pixel coordinate.
+// Fabric getPointer() returns internal coords. At any zoom/pan:
+//   canvas-element CSS px = fabCoord * zoom + vpt[panOffset]
+// The overlay covers the workspace; the canvas-wrapper (= Fabric canvas element)
+// is offset inside the workspace by (wrapOffX, wrapOffY).
+function _fabToOverlay(fabX, fabY) {
+  const zoom = fabricCanvas.getZoom();
+  const vpt  = fabricCanvas.viewportTransform;
+  // Fabric internal → CSS px relative to canvas element top-left
+  const elCssX = fabX * zoom + vpt[4];
+  const elCssY = fabY * zoom + vpt[5];
+  // Add canvas-wrapper offset within workspace → workspace-relative CSS px
+  const wrapRect = document.getElementById('canvas-wrapper').getBoundingClientRect();
+  const wsRect   = document.getElementById('workspace').getBoundingClientRect();
+  return {
+    x: elCssX + (wrapRect.left - wsRect.left),
+    y: elCssY + (wrapRect.top  - wsRect.top),
+  };
+  // Note: overlay px == workspace CSS px because sizeCropOverlay sets
+  // canvas width/height = ws.clientWidth/Height (integer CSS px, scale=1)
+}
+
+function onCropMouseDown(e) {} // unused — kept to avoid reference errors
+function onCropMouseMove(e) {}
+function onCropMouseUp()    {}
+
+function drawCropOverlay() {
+  sizeCropOverlay();
+  const W = cropOverlayEl.width;
+  const H = cropOverlayEl.height;
+  cropOverlayCtx.clearRect(0, 0, W, H);
+
+  if (!state.cropStart || !state.cropEnd) {
+    cropOverlayCtx.fillStyle = 'rgba(0,0,0,0.45)';
+    cropOverlayCtx.fillRect(0, 0, W, H);
+    cropOverlayCtx.fillStyle = 'rgba(255,255,255,0.6)';
+    cropOverlayCtx.font = '500 14px DM Sans, sans-serif';
+    cropOverlayCtx.textAlign = 'center';
+    cropOverlayCtx.fillText('Drag to select the crop region', W / 2, H / 2);
+    return;
+  }
+
+  // Convert Fabric internal coords → overlay canvas pixels
+  const p1 = _fabToOverlay(state.cropStart.x, state.cropStart.y);
+  const p2 = _fabToOverlay(state.cropEnd.x,   state.cropEnd.y);
+
+  const x = Math.min(p1.x, p2.x);
+  const y = Math.min(p1.y, p2.y);
+  const w = Math.abs(p2.x - p1.x);
+  const h = Math.abs(p2.y - p1.y);
+
+  // Dim everything outside selection
+  cropOverlayCtx.fillStyle = 'rgba(0,0,0,0.55)';
+  cropOverlayCtx.fillRect(0, 0, W, H);
+  cropOverlayCtx.clearRect(x, y, w, h);
+
+  // Dashed selection border
+  cropOverlayCtx.strokeStyle = '#ffffff';
+  cropOverlayCtx.lineWidth   = 1.5;
+  cropOverlayCtx.setLineDash([6, 4]);
+  cropOverlayCtx.strokeRect(x, y, w, h);
+  cropOverlayCtx.setLineDash([]);
+
+  // Corner accent handles
+  const cs = 14;
+  cropOverlayCtx.strokeStyle = '#e05c2a';
+  cropOverlayCtx.lineWidth   = 3;
+  cropOverlayCtx.lineCap     = 'round';
+  cropOverlayCtx.beginPath(); cropOverlayCtx.moveTo(x,     y+cs); cropOverlayCtx.lineTo(x,    y);    cropOverlayCtx.lineTo(x+cs,  y);    cropOverlayCtx.stroke();
+  cropOverlayCtx.beginPath(); cropOverlayCtx.moveTo(x+w-cs,y);    cropOverlayCtx.lineTo(x+w,  y);    cropOverlayCtx.lineTo(x+w,   y+cs); cropOverlayCtx.stroke();
+  cropOverlayCtx.beginPath(); cropOverlayCtx.moveTo(x,     y+h-cs);cropOverlayCtx.lineTo(x,   y+h);  cropOverlayCtx.lineTo(x+cs,  y+h);  cropOverlayCtx.stroke();
+  cropOverlayCtx.beginPath(); cropOverlayCtx.moveTo(x+w-cs,y+h);  cropOverlayCtx.lineTo(x+w,  y+h);  cropOverlayCtx.lineTo(x+w,   y+h-cs);cropOverlayCtx.stroke();
+
+  // Rule-of-thirds grid
+  if (w > 40 && h > 40) {
+    cropOverlayCtx.strokeStyle = 'rgba(255,255,255,0.2)';
+    cropOverlayCtx.lineWidth   = 0.75;
+    [1/3, 2/3].forEach(t => {
+      cropOverlayCtx.beginPath(); cropOverlayCtx.moveTo(x+w*t, y); cropOverlayCtx.lineTo(x+w*t, y+h); cropOverlayCtx.stroke();
+      cropOverlayCtx.beginPath(); cropOverlayCtx.moveTo(x, y+h*t); cropOverlayCtx.lineTo(x+w,   y+h*t); cropOverlayCtx.stroke();
+    });
+  }
+
+  // Pixel dimensions label (using source image pixel size)
+  if (w > 60 && h > 24) {
+    const bgObj = fabricCanvas.getObjects().find(o => o._isBackground);
+    if (bgObj) {
+      const pw = Math.round(Math.abs(state.cropEnd.x - state.cropStart.x) / bgObj.scaleX);
+      const ph = Math.round(Math.abs(state.cropEnd.y - state.cropStart.y) / bgObj.scaleY);
+      const label = `${pw} × ${ph} px`;
+      cropOverlayCtx.font      = 'bold 11px monospace';
+      cropOverlayCtx.fillStyle = 'rgba(0,0,0,0.65)';
+      const tw = cropOverlayCtx.measureText(label).width;
+      cropOverlayCtx.fillRect(x + 4, y + 4, tw + 10, 18);
+      cropOverlayCtx.fillStyle = '#ffffff';
+      cropOverlayCtx.textAlign = 'left';
+      cropOverlayCtx.fillText(label, x + 9, y + 16);
+    }
+  }
+}
+
+function applyCrop() {
+  if (!state.cropStart || !state.cropEnd) { exitCrop(); setTool('select'); return; }
+
+  const fabX1 = Math.min(state.cropStart.x, state.cropEnd.x);
+  const fabY1 = Math.min(state.cropStart.y, state.cropEnd.y);
+  const fabX2 = Math.max(state.cropStart.x, state.cropEnd.x);
+  const fabY2 = Math.max(state.cropStart.y, state.cropEnd.y);
+  if (fabX2 - fabX1 < 4 || fabY2 - fabY1 < 4) { exitCrop(); setTool('select'); return; }
+
+  const bgObj = fabricCanvas.getObjects().find(o => o._isBackground);
+  if (!bgObj) { exitCrop(); setTool('select'); return; }
+
+  // bgObj.left/top = where the image is placed in Fabric canvas internal coords
+  // bgObj.scaleX/Y = how source pixels map to Fabric internal coords
+  // getPointer() returns Fabric internal coords — same space as bgObj.left/top
+  // So to get source image pixel coords from a Fabric coord:
+  //   srcPx = (fabCoord - bgObj.left) / bgObj.scaleX
+  const bgLeft  = bgObj.left;
+  const bgTop   = bgObj.top;
+  const bgScaleX = bgObj.scaleX;
+  const bgScaleY = bgObj.scaleY;
+
+  const srcX = (fabX1 - bgLeft)  / bgScaleX;
+  const srcY = (fabY1 - bgTop)   / bgScaleY;
+  const srcW = (fabX2 - fabX1)   / bgScaleX;
+  const srcH = (fabY2 - fabY1)   / bgScaleY;
+
+  // Clamp to actual source image bounds
+  const srcImg_w = bgObj.width;   // natural source pixel width
+  const srcImg_h = bgObj.height;
+  const clampX = Math.max(0, Math.round(srcX));
+  const clampY = Math.max(0, Math.round(srcY));
+  const clampW = Math.min(Math.round(srcW), srcImg_w - clampX);
+  const clampH = Math.min(Math.round(srcH), srcImg_h - clampY);
+
+  console.log('[CROP] fab rect:', fabX1, fabY1, fabX2-fabX1, fabY2-fabY1);
+  console.log('[CROP] bg offset/scale:', bgLeft, bgTop, bgScaleX, bgScaleY);
+  console.log('[CROP] src px rect:', clampX, clampY, clampW, clampH, '| src size:', srcImg_w, srcImg_h);
+
+  if (clampW < 1 || clampH < 1) { exitCrop(); setTool('select'); return; }
+
+  // Snapshot annotations and push pre-crop undo frame
+  const annotObjs      = fabricCanvas.getObjects().filter(o => !o._isBackground);
+  const preAnnotPlain  = annotObjs.map(o => o.toObject(['coreBoardType', '_isBackground']));
+  const preCropImageURL    = state.activeImageIndex >= 0 ? state.images[state.activeImageIndex].dataURL : null;
+  const preCropAnnotations = getAnnotationsJSON();
+  clearTimeout(_historySaveTimer);
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  state.history.push(JSON.stringify({ imageURL: preCropImageURL, annotations: preCropAnnotations, isCropFrame: true }));
+  if (state.history.length > 60) state.history.shift();
+  state.historyIndex = state.history.length - 1;
+
+  // Crop the raw source image
+  const rawSrc = new Image();
+  rawSrc.onload = function () {
+    const off = document.createElement('canvas');
+    off.width  = clampW;
+    off.height = clampH;
+    off.getContext('2d').drawImage(rawSrc, clampX, clampY, clampW, clampH, 0, 0, clampW, clampH);
+    const croppedURL = off.toDataURL('image/png');
+
+    if (state.activeImageIndex >= 0) {
+      state.images[state.activeImageIndex].dataURL = croppedURL;
+      const thumbImg = document.querySelector(`.film-thumb[data-idx="${state.activeImageIndex}"] img`);
+      if (thumbImg) thumbImg.src = croppedURL;
+    }
+
+    fabricCanvas.getObjects().forEach(o => fabricCanvas.remove(o));
+    fabricCanvas.renderAll();
+
+    fabric.Image.fromURL(croppedURL, function (newBg) {
+      const newScaleX = Math.min(fabricCanvas.width  / newBg.width,  fabricCanvas.height / newBg.height, 1);
+      const newScaleY = newScaleX; // uniform scale
+      const newBgLeft = (fabricCanvas.width  - newBg.width  * newScaleX) / 2;
+      const newBgTop  = (fabricCanvas.height - newBg.height * newScaleY) / 2;
+
+      newBg.set({ scaleX: newScaleX, scaleY: newScaleY, left: newBgLeft, top: newBgTop,
+                  selectable: false, evented: false, _isBackground: true });
+      fabricCanvas.add(newBg);
+      fabricCanvas.sendToBack(newBg);
+
+      // Translate annotations: convert each from old Fabric coords → old src px → new Fabric coords
+      if (preAnnotPlain.length > 0) {
+        preAnnotPlain.forEach(a => {
+          // old Fabric coord → old src px
+          const aImgX = ((a.left || 0) - bgLeft)  / bgScaleX;
+          const aImgY = ((a.top  || 0) - bgTop)   / bgScaleY;
+          // old src px, shifted by crop origin → new src px relative to cropped image
+          const aNewImgX = aImgX - clampX;
+          const aNewImgY = aImgY - clampY;
+          // new src px → new Fabric coords
+          a.left = newBgLeft + aNewImgX * newScaleX;
+          a.top  = newBgTop  + aNewImgY * newScaleY;
+        });
+        fabric.util.enlivenObjects(preAnnotPlain, function (objects) {
+          objects.forEach(o => { o._isBackground = false; fabricCanvas.add(o); });
+          fabricCanvas.renderAll();
+          _pushPostCropSnapshot(croppedURL);
+        });
+      } else {
+        fabricCanvas.renderAll();
+        _pushPostCropSnapshot(croppedURL);
+      }
+    });
+
+    exitCrop(); setTool('select');
+  };
+  rawSrc.src = preCropImageURL || fabricCanvas.toDataURL({ format: 'png', quality: 1 });
+}
+
+function _pushPostCropSnapshot(croppedURL) {
+  // Push the post-crop state so redo works correctly too
+  const json = getAnnotationsJSON();
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  state.history.push(JSON.stringify({
+    imageURL:    croppedURL,
+    annotations: json,
+    isCropFrame: true,
+  }));
+  if (state.history.length > 60) state.history.shift();
+  state.historyIndex = state.history.length - 1;
+  if (state.activeImageIndex >= 0) state.images[state.activeImageIndex].annotations = json;
+  updateHistoryButtons();
+  updateStatus('objects', fabricCanvas.getObjects().filter(o => !o._isBackground).length);
+}
+
+document.getElementById('btn-crop-apply').addEventListener('click', applyCrop);
+document.getElementById('btn-crop-cancel').addEventListener('click', () => { exitCrop(); setTool('select'); });
+
+// ─────────────────────────────────────────────
+// HISTORY (UNDO / REDO)
+// ─────────────────────────────────────────────
+// We block saves while restoring so async enlivenObjects
+// callbacks cannot corrupt the stack mid-restore.
+let _historyRestoring = false;
+let _historySaveTimer = null;
+
+function saveHistory() {
+  if (_historyRestoring) return;
+  // Debounce rapid saves (e.g. freehand strokes fire many events)
+  clearTimeout(_historySaveTimer);
+  _historySaveTimer = setTimeout(_doSaveHistory, 80);
+}
+
+function _doSaveHistory() {
+  if (_historyRestoring) return;
+  state.history = state.history.slice(0, state.historyIndex + 1);
+  const annotJSON = getAnnotationsJSON();
+  const imageURL  = state.activeImageIndex >= 0 ? state.images[state.activeImageIndex].dataURL : null;
+  const frame     = JSON.stringify({ imageURL, annotations: annotJSON, isCropFrame: false });
+  // Avoid duplicate consecutive entries (compare annotations only — imageURL won't change for normal saves)
+  if (state.history.length > 0) {
+    try {
+      const last = JSON.parse(state.history[state.history.length - 1]);
+      if (last.annotations === annotJSON && last.imageURL === imageURL) return;
+    } catch { /* legacy plain string frame — continue */ }
+  }
+  state.history.push(frame);
+  if (state.history.length > 60) state.history.shift();
+  state.historyIndex = state.history.length - 1;
+  updateHistoryButtons();
+  updateStatus('objects', fabricCanvas.getObjects().filter(o => !o._isBackground).length);
+  if (state.activeImageIndex >= 0) state.images[state.activeImageIndex].annotations = annotJSON;
+}
+
+function undo() {
+  if (state.historyIndex <= 0) return;
+  state.historyIndex--;
+  _restoreHistory(state.history[state.historyIndex]);
+}
+
+function redo() {
+  if (state.historyIndex >= state.history.length - 1) return;
+  state.historyIndex++;
+  _restoreHistory(state.history[state.historyIndex]);
+}
+
+function _restoreHistory(raw) {
+  _historyRestoring = true;
+  clearTimeout(_historySaveTimer);
+
+  // Crop frames store {imageURL, annotations, isCropFrame}
+  // Plain frames store a JSON array string of annotation objects
+  let imageURL    = null;
+  let annotations = null;
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && parsed.isCropFrame) {
+      imageURL    = parsed.imageURL;
+      annotations = parsed.annotations;
+    } else {
+      // Plain annotation array — raw IS the annotations JSON
+      annotations = raw;
+    }
+  } catch {
+    // raw is a plain JSON array string (legacy plain frame)
+    annotations = raw;
+  }
+
+  // Helper that restores annotations onto whatever background is currently loaded
+  function restoreAnnotations(annotJSON) {
+    fabricCanvas.getObjects().filter(o => !o._isBackground).forEach(o => fabricCanvas.remove(o));
+    fabricCanvas.discardActiveObject();
+
+    if (!annotJSON || annotJSON === '[]') {
+      fabricCanvas.renderAll();
+      updateHistoryButtons();
+      updateStatus('objects', 0);
+      if (state.activeImageIndex >= 0) state.images[state.activeImageIndex].annotations = '[]';
+      _historyRestoring = false;
+      return;
+    }
+
+    let parsed;
+    try { parsed = JSON.parse(annotJSON); } catch { _historyRestoring = false; return; }
+
+    fabric.util.enlivenObjects(parsed, function(objects) {
+      objects.forEach(o => { o._isBackground = false; fabricCanvas.add(o); });
+      fabricCanvas.renderAll();
+      updateHistoryButtons();
+      updateStatus('objects', fabricCanvas.getObjects().filter(o => !o._isBackground).length);
+      if (state.activeImageIndex >= 0) state.images[state.activeImageIndex].annotations = annotJSON;
+      _historyRestoring = false;
+    });
+  }
+
+  if (imageURL && imageURL !== (state.activeImageIndex >= 0 ? state.images[state.activeImageIndex].dataURL : null)) {
+    // Need to swap the background image first, then restore annotations
+    if (state.activeImageIndex >= 0) {
+      state.images[state.activeImageIndex].dataURL = imageURL;
+      const thumbImg = document.querySelector(`.film-thumb[data-idx="${state.activeImageIndex}"] img`);
+      if (thumbImg) thumbImg.src = imageURL;
+    }
+
+    // Remove old background
+    fabricCanvas.getObjects().filter(o => o._isBackground).forEach(o => fabricCanvas.remove(o));
+    fabricCanvas.discardActiveObject();
+
+    fabric.Image.fromURL(imageURL, function(img) {
+      const maxW  = fabricCanvas.width;
+      const maxH  = fabricCanvas.height;
+      const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+      img.set({
+        scaleX: scale, scaleY: scale,
+        left: (fabricCanvas.width  - img.width  * scale) / 2,
+        top:  (fabricCanvas.height - img.height * scale) / 2,
+        selectable: false, evented: false, _isBackground: true,
+      });
+      fabricCanvas.add(img);
+      fabricCanvas.sendToBack(img);
+      updateStatus('image', 'Restored');
+      restoreAnnotations(annotations);
+    });
+  } else {
+    // Background unchanged — just restore annotations
+    restoreAnnotations(annotations);
+  }
+}
+
+function updateHistoryButtons() {
+  document.getElementById('btn-undo').style.opacity = state.historyIndex > 0 ? '1' : '0.35';
+  document.getElementById('btn-redo').style.opacity = state.historyIndex < state.history.length - 1 ? '1' : '0.35';
+}
+
+function getAnnotationsJSON() {
+  const fabricObjs = fabricCanvas.getObjects().filter(o => !o._isBackground);
+  return JSON.stringify({
+    fabric:   fabricObjs.map(o => o.toJSON(['coreBoardType','_isBackground'])),
+    stickies: JSON.parse(getStickiesJSON()),
+  });
+}
+
+function loadAnnotationsJSON(json) {
+  // Clear fabric annotations
+  fabricCanvas.getObjects().filter(o => !o._isBackground).forEach(o => fabricCanvas.remove(o));
+  // Clear HTML stickies
+  _clearAllStickies();
+
+  if (!json || json === '[]' || json === '{}') { fabricCanvas.renderAll(); updateStatus('objects', 0); return; }
+
+  let parsed;
+  try { parsed = JSON.parse(json); } catch { return; }
+
+  // Support both new format {fabric, stickies} and legacy plain array
+  const fabricData  = Array.isArray(parsed) ? parsed : (parsed.fabric   || []);
+  const stickyData  = Array.isArray(parsed) ? []     : (parsed.stickies || []);
+
+  if (stickyData.length) loadStickiesJSON(JSON.stringify(stickyData));
+
+  if (fabricData.length) {
+    fabric.util.enlivenObjects(fabricData, function(objects) {
+      objects.forEach(o => { o._isBackground = false; fabricCanvas.add(o); });
+      fabricCanvas.renderAll();
+      updateStatus('objects', fabricCanvas.getObjects().filter(o => !o._isBackground).length + _stickyNotes.length);
+    });
+  } else {
+    fabricCanvas.renderAll();
+    updateStatus('objects', _stickyNotes.length);
+  }
+}
+
+function clearAnnotations(saveHist = true) {
+  fabricCanvas.getObjects().filter(o => !o._isBackground).forEach(o => fabricCanvas.remove(o));
+  fabricCanvas.discardActiveObject();
+  _clearAllStickies();
+  fabricCanvas.renderAll();
+  updateStatus('objects', 0);
+  if (saveHist) {
+    clearTimeout(_historySaveTimer);
+    _doSaveHistory();
+  }
+}
+
+// ─────────────────────────────────────────────
+// IMAGE LOADING
+// ─────────────────────────────────────────────
+function loadImageURL(src, filename) {
+  state.imageLoaded = true;
+  fabric.Image.fromURL(src, function(img) {
+    const maxW  = fabricCanvas.width;
+    const maxH  = fabricCanvas.height;
+    const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+    img.set({
+      scaleX: scale, scaleY: scale,
+      left: (fabricCanvas.width  - img.width  * scale) / 2,
+      top:  (fabricCanvas.height - img.height * scale) / 2,
+      selectable: false, evented: false, _isBackground: true,
+    });
+    fabricCanvas.getObjects().filter(o => o._isBackground).forEach(o => fabricCanvas.remove(o));
+    fabricCanvas.add(img);
+    fabricCanvas.sendToBack(img);
+    fabricCanvas.renderAll();
+    document.getElementById('empty-state').classList.add('hidden');
+    document.getElementById('btn-remove-image').style.display = '';
+    updateStatus('image', filename || 'Image loaded');
+  });
+}
+
+// ─────────────────────────────────────────────
+// BATCH / FILMSTRIP
+// ─────────────────────────────────────────────
+function addImages(files) {
+  const imageFiles = Array.from(files).filter(f => f.type.match(/image\/(png|jpeg|jpg|webp)/));
+  if (!imageFiles.length) return;
+
+  let loadedCount = 0;
+  const startIdx = state.images.length;
+
+  imageFiles.forEach((file, fi) => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const entry = { dataURL: e.target.result, filename: file.name, annotations: '[]' };
+      const idx = startIdx + fi;
+      state.images[idx] = entry;   // preserve order
+
+      loadedCount++;
+      if (loadedCount === imageFiles.length) {
+        // All loaded — rebuild filmstrip and switch if first batch
+        rebuildFilmstrip();
+        updateFilmstripVisibility();
+        if (state.activeImageIndex < 0) switchToImage(0);
+      }
+    };
+    reader.readAsDataURL(file);
+  });
+  // Pre-allocate slots so ordering is preserved
+  for (let i = 0; i < imageFiles.length; i++) state.images[startIdx + i] = state.images[startIdx + i] || null;
+}
+
+function switchToImage(idx) {
+  if (idx < 0 || idx >= state.images.length || !state.images[idx]) return;
+
+  // Save current annotations
+  if (state.activeImageIndex >= 0 && state.images[state.activeImageIndex]) {
+    state.images[state.activeImageIndex].annotations = getAnnotationsJSON();
+  }
+
+  state.activeImageIndex = idx;
+  const entry = state.images[idx];
+
+  state.history = []; state.historyIndex = -1;
+
+  // Remove all fabric objects and stickies
+  fabricCanvas.getObjects().forEach(o => fabricCanvas.remove(o));
+  _clearAllStickies();
+  fabricCanvas.setZoom(1);
+  fabricCanvas.absolutePan({ x:0, y:0 });
+  state.zoom = 1;
+  document.getElementById('zoom-label').textContent = '100%';
+
+  loadImageURL(entry.dataURL, entry.filename);
+
+  setTimeout(() => {
+    if (entry.annotations && entry.annotations !== '[]') {
+      loadAnnotationsJSON(entry.annotations);
+    }
+    // Use immediate save so historyIndex starts at 0 correctly
+    clearTimeout(_historySaveTimer);
+    _doSaveHistory();
+    updateHistoryButtons();
+  }, 250);
+
+  document.querySelectorAll('.film-thumb').forEach((t, i) => t.classList.toggle('active', i === idx));
+  updateStatus('image', `${entry.filename} (${idx+1}/${state.images.length})`);
+}
+
+function removeCurrentImage() {
+  const idx = state.activeImageIndex;
+  state.images.splice(idx, 1);
+  rebuildFilmstrip();
+  updateFilmstripVisibility();
+
+  if (state.images.length === 0) {
+    // Nothing left
+    fabricCanvas.getObjects().forEach(o => fabricCanvas.remove(o));
+    fabricCanvas.renderAll();
+    state.imageLoaded = false;
+    state.activeImageIndex = -1;
+    document.getElementById('empty-state').classList.remove('hidden');
+    document.getElementById('btn-remove-image').style.display = 'none';
+    updateStatus('image', 'No image loaded');
+    updateStatus('objects', 0);
+    state.history = []; state.historyIndex = -1;
+  } else {
+    state.activeImageIndex = -1;  // force reload
+    switchToImage(Math.min(idx, state.images.length - 1));
+  }
+}
+
+function addFilmThumb(entry, idx) {
+  const filmstrip = document.getElementById('filmstrip');
+  const addBtn    = document.getElementById('film-add-btn');
+
+  const thumb = document.createElement('div');
+  thumb.className = 'film-thumb';
+  thumb.dataset.idx = idx;
+
+  const img = document.createElement('img');
+  img.src = entry.dataURL; img.alt = entry.filename;
+
+  const removeBtn = document.createElement('button');
+  removeBtn.className = 'film-remove';
+  removeBtn.title = 'Remove this image';
+  removeBtn.textContent = '✕';
+  removeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    document.getElementById('modal-remove-image').classList.add('open');
+    // Temporarily switch to this image's index so the modal removes the right one
+    _pendingRemoveIdx = parseInt(thumb.dataset.idx);
+  });
+
+  thumb.appendChild(img); thumb.appendChild(removeBtn);
+  thumb.addEventListener('click', () => switchToImage(parseInt(thumb.dataset.idx)));
+  filmstrip.insertBefore(thumb, addBtn);
+}
+
+function rebuildFilmstrip() {
+  const filmstrip = document.getElementById('filmstrip');
+  const addBtn    = document.getElementById('film-add-btn');
+  filmstrip.querySelectorAll('.film-thumb').forEach(t => t.remove());
+  state.images.forEach((entry, i) => { if (entry) addFilmThumb(entry, i); });
+}
+
+function updateFilmstripVisibility() {
+  const filmstrip = document.getElementById('filmstrip');
+  filmstrip.classList.toggle('visible', state.images.length > 1);
+  resizeCanvas();
+}
+
+document.getElementById('film-add-btn').addEventListener('click', () => document.getElementById('file-input').click());
+
+// ─────────────────────────────────────────────
+// FILE UPLOAD
+// ─────────────────────────────────────────────
+document.getElementById('file-input').addEventListener('change', e => { addImages(e.target.files); e.target.value = ''; });
+document.getElementById('btn-upload-top').addEventListener('click', () => document.getElementById('file-input').click());
+document.getElementById('btn-upload-empty').addEventListener('click', () => document.getElementById('file-input').click());
+
+function setupDragDrop(el) {
+  el.addEventListener('dragover', e => { e.preventDefault(); document.getElementById('empty-drop-zone').classList.add('drag-over'); });
+  el.addEventListener('dragleave', () => document.getElementById('empty-drop-zone').classList.remove('drag-over'));
+  el.addEventListener('drop', e => { e.preventDefault(); document.getElementById('empty-drop-zone').classList.remove('drag-over'); addImages(e.dataTransfer.files); });
+}
+setupDragDrop(document.getElementById('empty-drop-zone'));
+setupDragDrop(document.getElementById('workspace'));
+
+// ─────────────────────────────────────────────
+// REMOVE IMAGE
+// ─────────────────────────────────────────────
+let _pendingRemoveIdx = -1;
+
+function showRemoveImageModal() {
+  _pendingRemoveIdx = state.activeImageIndex;
+  document.getElementById('modal-remove-image').classList.add('open');
+}
+
+document.getElementById('btn-remove-image').addEventListener('click', showRemoveImageModal);
+document.getElementById('btn-remove-image-panel').addEventListener('click', showRemoveImageModal);
+
+document.getElementById('modal-remove-cancel').addEventListener('click', () => {
+  document.getElementById('modal-remove-image').classList.remove('open');
+  _pendingRemoveIdx = -1;
+});
+
+document.getElementById('modal-remove-confirm').addEventListener('click', () => {
+  document.getElementById('modal-remove-image').classList.remove('open');
+  // If removal was triggered from a non-active filmstrip thumb, switch to it first
+  if (_pendingRemoveIdx >= 0 && _pendingRemoveIdx !== state.activeImageIndex) {
+    state.activeImageIndex = _pendingRemoveIdx;
+  }
+  _pendingRemoveIdx = -1;
+  removeCurrentImage();
+});
+
+// ─────────────────────────────────────────────
+// EXPORT PNG  (Fabric canvas + HTML sticky notes composited)
+// ─────────────────────────────────────────────
+document.getElementById('btn-export').addEventListener('click', () => {
+  if (!state.imageLoaded) { alert('Please upload an image first.'); return; }
+
+  // Sync all sticky data before export
+  _stickyNotes.forEach(n => _syncStickyData(n.id));
+
+  fabricCanvas.discardActiveObject();
+  fabricCanvas.renderAll();
+
+  // ── Step 1: get Fabric canvas export (image + Fabric annotations) ──
+  // multiplier:1 → export px == fabricCanvas.width × fabricCanvas.height
+  const fabricDataURL = fabricCanvas.toDataURL({ format: 'png', quality: 1, multiplier: 1 });
+
+  const baseImg = new Image();
+  baseImg.onload = function () {
+
+    // ── Step 2: figure out the coordinate mapping ──
+    //
+    // fabricCanvas covers the full workspace (set in resizeCanvas).
+    // The background image is centered inside it at some scale.
+    // Sticky notes use el.style.left/top which are CSS px relative to #workspace.
+    // The Fabric export pixel space == fabricCanvas.width × fabricCanvas.height.
+    // CSS px in workspace map 1:1 to Fabric internal coords because
+    // fabricCanvas.setWidth/Height(ws.clientWidth/Height) — same units.
+    // So sticky CSS px position in workspace == fabric internal coord == export px.
+    // (Device pixel ratio is handled by the browser; Fabric toDataURL at multiplier:1
+    //  always gives fabricCanvas.width × fabricCanvas.height logical pixels.)
+    //
+    // Therefore: parse el.style.left/top directly as the export canvas coordinates.
+
+    const out = document.createElement('canvas');
+    out.width  = baseImg.width;   // == fabricCanvas.width
+    out.height = baseImg.height;  // == fabricCanvas.height
+    const ctx  = out.getContext('2d');
+
+    // Draw the Fabric layer
+    ctx.drawImage(baseImg, 0, 0);
+
+    // ── Step 3: draw each sticky note ──
+    _stickyNotes.forEach(note => {
+      // Parse position straight from the element's style (workspace-relative CSS px)
+      // which equals Fabric internal coords == export pixels at multiplier:1
+      const el  = note.el;
+      const nx  = parseFloat(el.style.left)  || 0;
+      const ny  = parseFloat(el.style.top)   || 0;
+      const nw  = el.offsetWidth;
+      const nh  = el.offsetHeight;
+      const hh  = 26;   // header height in CSS px = export px
+
+      // Shadow
+      ctx.save();
+      ctx.shadowColor   = 'rgba(0,0,0,0.25)';
+      ctx.shadowOffsetX = 3;
+      ctx.shadowOffsetY = 4;
+      ctx.shadowBlur    = 10;
+      _roundRect(ctx, nx, ny, nw, nh, 4);
+      ctx.fillStyle = note.color || '#fef08a';
+      ctx.fill();
+      ctx.restore();
+
+      // Body background (no shadow)
+      _roundRect(ctx, nx, ny, nw, nh, 4);
+      ctx.fillStyle = note.color || '#fef08a';
+      ctx.fill();
+
+      // Amber header bar
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(nx + 4, ny);
+      ctx.lineTo(nx + nw - 4, ny);
+      ctx.quadraticCurveTo(nx + nw, ny,      nx + nw, ny + 4);
+      ctx.lineTo(nx + nw, ny + hh);
+      ctx.lineTo(nx,      ny + hh);
+      ctx.lineTo(nx,      ny + 4);
+      ctx.quadraticCurveTo(nx, ny, nx + 4, ny);
+      ctx.closePath();
+      ctx.fillStyle = '#fbbf24';
+      ctx.fill();
+      ctx.restore();
+
+      // Header label
+      ctx.fillStyle    = '#78350f';
+      ctx.font         = 'bold 11px sans-serif';
+      ctx.textBaseline = 'middle';
+      ctx.textAlign    = 'left';
+      ctx.fillText('Note', nx + 8, ny + hh / 2);
+
+      // Body text — word-wrapped
+      const bodyText   = note.text || '';
+      const fontSize   = 14;
+      const lineHeight = 20;
+      const padX       = 8;
+      const padY       = 8;
+      const maxLineW   = nw - padX * 2;
+      const bodyTop    = ny + hh + padY;
+
+      ctx.fillStyle    = '#3d2c00';
+      ctx.font         = `${fontSize}px sans-serif`;
+      ctx.textBaseline = 'top';
+      ctx.textAlign    = 'left';
+
+      const lines = _wrapText(ctx, bodyText, maxLineW);
+      lines.forEach((line, i) => {
+        const lineY = bodyTop + i * lineHeight;
+        if (lineY < ny + nh - padY) {
+          ctx.fillText(line, nx + padX, lineY);
+        }
+      });
+    });
+
+    // ── Step 4: download ──
+    const fname = state.activeImageIndex >= 0
+      ? state.images[state.activeImageIndex].filename.replace(/\.[^.]+$/, '')
+      : 'markup';
+    const a = document.createElement('a');
+    a.href     = out.toDataURL('image/png');
+    a.download = `corkboard-${fname}.png`;
+    a.click();
+  };
+  baseImg.src = fabricDataURL;
+});
+
+// Canvas helper: rounded rect path
+function _roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// Canvas helper: simple word-wrap
+function _wrapText(ctx, text, maxWidth) {
+  if (!text) return [];
+  const lines = [];
+  text.split('\n').forEach(paragraph => {
+    const words = paragraph.split(' ');
+    let line = '';
+    words.forEach(word => {
+      const test = line ? line + ' ' + word : word;
+      if (ctx.measureText(test).width > maxWidth && line) {
+        lines.push(line);
+        line = word;
+      } else {
+        line = test;
+      }
+    });
+    lines.push(line);
+  });
+  return lines;
+}
+
+// ─────────────────────────────────────────────
+// SAVE / LOAD PROJECT
+// ─────────────────────────────────────────────
+document.getElementById('btn-save').addEventListener('click', () => {
+  if (!state.imageLoaded) { alert('Please upload an image first.'); return; }
+  if (state.activeImageIndex >= 0) state.images[state.activeImageIndex].annotations = getAnnotationsJSON();
+  const projectData = {
+    version: 2, appName: 'Cork Board',
+    images: state.images.filter(Boolean),
+    activeImageIndex: state.activeImageIndex,
+    editorState: { strokeColor: state.strokeColor, fillColor: state.fillColor, strokeWidth: state.strokeWidth, opacity: state.opacity, fontSize: state.fontSize },
+  };
+  const blob = new Blob([JSON.stringify(projectData)], { type:'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'corkboard-project.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('btn-load-json').addEventListener('click', () => document.getElementById('json-input').click());
+
+document.getElementById('json-input').addEventListener('change', e => {
+  const file = e.target.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.appName !== 'Cork Board') { alert('Not a valid Cork Board project file.'); return; }
+      fabricCanvas.getObjects().forEach(o => fabricCanvas.remove(o));
+      fabricCanvas.renderAll();
+      state.images = []; state.activeImageIndex = -1;
+      rebuildFilmstrip();
+
+      if (data.images && data.images.length) {
+        state.images = data.images;
+        rebuildFilmstrip(); updateFilmstripVisibility();
+        setTimeout(() => switchToImage(data.activeImageIndex || 0), 100);
+      } else if (data.imageDataURL) {
+        // v1 compat
+        state.images = [{ dataURL: data.imageDataURL, filename: 'Loaded', annotations: data.annotations || '[]' }];
+        rebuildFilmstrip(); updateFilmstripVisibility();
+        setTimeout(() => switchToImage(0), 100);
+      }
+
+      if (data.editorState) {
+        const s = data.editorState;
+        if (s.strokeColor) { state.strokeColor = s.strokeColor; document.getElementById('prop-stroke').value = s.strokeColor; }
+        if (s.strokeWidth) { state.strokeWidth = s.strokeWidth; document.getElementById('prop-stroke-width').value = s.strokeWidth; document.getElementById('stroke-width-val').textContent = s.strokeWidth; }
+        if (s.opacity !== undefined) { state.opacity = s.opacity; document.getElementById('prop-opacity').value = Math.round(s.opacity*100); document.getElementById('opacity-val').textContent = Math.round(s.opacity*100)+'%'; }
+        if (s.fontSize) { state.fontSize = s.fontSize; document.getElementById('prop-font-size').value = s.fontSize; }
+      }
+    } catch { alert('Failed to load project. Make sure it is a valid Cork Board JSON.'); }
+  };
+  reader.readAsText(file); e.target.value = '';
+});
+
+// ─────────────────────────────────────────────
+// PROPERTIES PANEL
+// ─────────────────────────────────────────────
+// Color swatches — edit this list to change the palette
+const swatchColors = [
+  '#e05c2a','#dc2626','#f59e0b','#16a34a',
+  '#2563eb','#7c3aed','#db2777','#0891b2',
+  '#1a1108','#ffffff','#f5e6d0','#fef08a',
+];
+
+const swatchContainer = document.getElementById('color-swatches');
+swatchColors.forEach(c => {
+  const sw = document.createElement('div');
+  sw.className = 'swatch';
+  sw.style.background = c;
+  sw.style.border = `2px solid ${c === '#ffffff' ? '#ccc' : c}`;
+  sw.title = c;
+  sw.addEventListener('click', () => {
+    document.querySelectorAll('.swatch').forEach(s => s.classList.remove('selected'));
+    sw.classList.add('selected');
+    document.getElementById('prop-stroke').value = c;
+    applyStrokeColor(c);
+  });
+  swatchContainer.appendChild(sw);
+});
+
+function applyStrokeColor(c) {
+  state.strokeColor = c;
+  if (fabricCanvas.isDrawingMode) fabricCanvas.freeDrawingBrush.color = c;
+  fabricCanvas.getActiveObjects().forEach(obj => {
+    obj.set('stroke', c);
+    if (obj.type === 'i-text' || obj.type === 'text') obj.set('fill', c);
+    if (obj.coreBoardType === 'arrow') obj.getObjects().forEach(o => { if (o.type==='line') o.set('stroke',c); if (o.type==='triangle') o.set('fill',c); });
+  });
+  fabricCanvas.renderAll();
+}
+
+document.getElementById('prop-stroke').addEventListener('input', e => applyStrokeColor(e.target.value));
+
+document.getElementById('prop-fill').addEventListener('input', e => {
+  state.fillColor = e.target.value;
+  fabricCanvas.getActiveObjects().forEach(obj => { if (obj.type !== 'i-text' && obj.type !== 'text') obj.set('fill', hexToRgba(e.target.value, state.opacity)); });
+  fabricCanvas.renderAll();
+});
+
+document.getElementById('prop-stroke-width').addEventListener('input', e => {
+  state.strokeWidth = parseInt(e.target.value);
+  document.getElementById('stroke-width-val').textContent = state.strokeWidth;
+  if (fabricCanvas.isDrawingMode) fabricCanvas.freeDrawingBrush.width = state.tool === 'highlighter' ? Math.max(state.strokeWidth, 16) : state.strokeWidth;
+  fabricCanvas.getActiveObjects().forEach(obj => obj.set('strokeWidth', state.strokeWidth));
+  fabricCanvas.renderAll();
+});
+
+document.getElementById('prop-opacity').addEventListener('input', e => {
+  const pct = parseInt(e.target.value);
+  state.opacity = pct / 100;
+  document.getElementById('opacity-val').textContent = pct + '%';
+  fabricCanvas.getActiveObjects().forEach(obj => obj.set('opacity', state.opacity));
+  fabricCanvas.renderAll();
+});
+
+document.getElementById('prop-font-size').addEventListener('input', e => {
+  state.fontSize = parseInt(e.target.value) || 22;
+  fabricCanvas.getActiveObjects().forEach(obj => { if (obj.type==='i-text'||obj.type==='text') obj.set('fontSize', state.fontSize); });
+  fabricCanvas.renderAll();
+});
+
+// ─────────────────────────────────────────────
+// ZOOM
+// ─────────────────────────────────────────────
+document.getElementById('btn-zoom-in').addEventListener('click', () => adjustZoom(0.15));
+document.getElementById('btn-zoom-out').addEventListener('click', () => adjustZoom(-0.15));
+document.getElementById('btn-zoom-reset').addEventListener('click', resetView);
+
+function resetView() {
+  fabricCanvas.setZoom(1);
+  fabricCanvas.absolutePan({ x:0, y:0 });
+  state.zoom = 1;
+  document.getElementById('zoom-label').textContent = '100%';
+}
+
+function adjustZoom(delta) {
+  const newZoom = Math.max(0.1, Math.min(10, fabricCanvas.getZoom() + delta));
+  const center  = fabricCanvas.getCenter();
+  fabricCanvas.zoomToPoint({ x: center.left, y: center.top }, newZoom);
+  state.zoom = newZoom;
+  document.getElementById('zoom-label').textContent = Math.round(newZoom * 100) + '%';
+}
+
+fabricCanvas.on('mouse:wheel', function(opt) {
+  let zoom = fabricCanvas.getZoom();
+  zoom *= 0.999 ** opt.e.deltaY;
+  zoom = Math.max(0.1, Math.min(10, zoom));
+  fabricCanvas.zoomToPoint({ x: opt.e.offsetX, y: opt.e.offsetY }, zoom);
+  state.zoom = zoom;
+  document.getElementById('zoom-label').textContent = Math.round(zoom * 100) + '%';
+  opt.e.preventDefault(); opt.e.stopPropagation();
+});
+
+// ─────────────────────────────────────────────
+// TOOLBAR BUTTON EVENTS
+// ─────────────────────────────────────────────
+document.querySelectorAll('.tool-btn[data-tool]').forEach(btn => btn.addEventListener('click', () => setTool(btn.dataset.tool)));
+
+document.getElementById('btn-undo').addEventListener('click', undo);
+document.getElementById('btn-redo').addEventListener('click', redo);
+document.getElementById('btn-delete').addEventListener('click', deleteSelected);
+document.getElementById('btn-clear').addEventListener('click', showClearModal);
+document.getElementById('btn-clear-panel').addEventListener('click', showClearModal);
+
+function deleteSelected() {
+  // Try selected sticky note first
+  if (deleteSelectedSticky()) return;
+  // Then fabric objects
+  const actives = fabricCanvas.getActiveObjects(); if (!actives.length) return;
+  actives.forEach(obj => { if (!obj._isBackground) fabricCanvas.remove(obj); });
+  fabricCanvas.discardActiveObject(); fabricCanvas.renderAll(); saveHistory();
+}
+
+// ─────────────────────────────────────────────
+// ANNOTATION VISIBILITY
+// ─────────────────────────────────────────────
+function toggleAnnotations() {
+  state.annotationsVisible = !state.annotationsVisible;
+  fabricCanvas.getObjects().forEach(o => { if (!o._isBackground) o.set('visible', state.annotationsVisible); });
+  document.getElementById('sticky-layer').style.display = state.annotationsVisible ? '' : 'none';
+  fabricCanvas.renderAll();
+  document.getElementById('btn-toggle-annot').textContent = state.annotationsVisible ? '👁 Hide Annotations' : '👁 Show Annotations';
+  document.getElementById('annot-toggle-btn').textContent = `👁 Annotations: ${state.annotationsVisible ? 'ON' : 'OFF'}`;
+}
+
+document.getElementById('btn-toggle-annot').addEventListener('click', toggleAnnotations);
+document.getElementById('annot-toggle-btn').addEventListener('click', toggleAnnotations);
+
+// ─────────────────────────────────────────────
+// PRESENTATION MODE
+// ─────────────────────────────────────────────
+document.getElementById('btn-present').addEventListener('click', () => {
+  state.isPresentMode = true;
+  document.getElementById('toolbar').classList.add('hidden');
+  document.getElementById('props-panel').classList.add('hidden');
+  ['btn-present','btn-export','btn-remove-image'].forEach(id => document.getElementById(id).style.display = 'none');
+  document.getElementById('btn-exit-present').style.display = '';
+  document.getElementById('presentation-mode-indicator').style.display = 'flex';
+  document.getElementById('annot-toggle-btn').classList.remove('hidden');
+  setTool('laser');
+});
+
+document.getElementById('btn-exit-present').addEventListener('click', () => {
+  state.isPresentMode = false;
+  document.getElementById('toolbar').classList.remove('hidden');
+  document.getElementById('props-panel').classList.remove('hidden');
+  document.getElementById('btn-present').style.display = '';
+  document.getElementById('btn-export').style.display = '';
+  if (state.imageLoaded) document.getElementById('btn-remove-image').style.display = '';
+  document.getElementById('btn-exit-present').style.display = 'none';
+  document.getElementById('presentation-mode-indicator').style.display = 'none';
+  document.getElementById('annot-toggle-btn').classList.add('hidden');
+  setTool('select');
+});
+
+// ─────────────────────────────────────────────
+// FULLSCREEN
+// ─────────────────────────────────────────────
+document.getElementById('btn-fullscreen').addEventListener('click', () => {
+  if (!document.fullscreenElement) document.documentElement.requestFullscreen().catch(()=>{});
+  else document.exitFullscreen().catch(()=>{});
+});
+
+// ─────────────────────────────────────────────
+// CLEAR MODAL
+// ─────────────────────────────────────────────
+function showClearModal() { document.getElementById('modal-clear').classList.add('open'); }
+document.getElementById('modal-clear-cancel').addEventListener('click', () => document.getElementById('modal-clear').classList.remove('open'));
+document.getElementById('modal-clear-confirm').addEventListener('click', () => { document.getElementById('modal-clear').classList.remove('open'); clearAnnotations(true); });
+
+// ─────────────────────────────────────────────
+// SHORTCUTS MODAL
+// ─────────────────────────────────────────────
+function showShortcutsModal() { document.getElementById('modal-shortcuts').classList.add('open'); }
+function hideShortcutsModal() { document.getElementById('modal-shortcuts').classList.remove('open'); }
+document.getElementById('btn-shortcuts').addEventListener('click', showShortcutsModal);
+document.getElementById('modal-shortcuts-close').addEventListener('click', hideShortcutsModal);
+document.getElementById('modal-shortcuts').addEventListener('click', e => { if (e.target === e.currentTarget) hideShortcutsModal(); });
+
+// ─────────────────────────────────────────────
+// KEYBOARD SHORTCUTS
+// ─────────────────────────────────────────────
+let spaceHeld = false;
+
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+  const activeObj = fabricCanvas.getActiveObject();
+  if (activeObj && activeObj.isEditing) return;
+
+  const key = e.key.toLowerCase();
+
+  if (e.ctrlKey || e.metaKey) {
+    if (key === 'z') { e.preventDefault(); undo(); return; }
+    if (key === 'y') { e.preventDefault(); redo(); return; }
+  }
+
+  // Spacebar: hold for temporary pan
+  if (e.key === ' ' && !spaceHeld && !e.ctrlKey && !e.metaKey) {
+    spaceHeld = true;
+    if (state.tool !== 'pan') { state.prevTool = state.tool; setTool('pan'); }
+    e.preventDefault(); return;
+  }
+
+  // Tool shortcuts — CUSTOMIZATION: edit this map
+  const toolMap = { v:'select', m:'pan', p:'pen', h:'highlighter', a:'arrow', r:'rect', c:'circle', t:'text', n:'sticky', x:'crop', l:'laser' };
+  if (!e.ctrlKey && !e.metaKey && !e.altKey && toolMap[key]) { setTool(toolMap[key]); return; }
+
+  if (key === 'delete' || key === 'backspace') deleteSelected();
+  if (key === '?') { showShortcutsModal(); return; }
+  if (key === 'escape') {
+    if (document.getElementById('modal-shortcuts').classList.contains('open')) { hideShortcutsModal(); return; }
+    if (state.isCropping) { exitCrop(); setTool('select'); }
+    else if (state.isPresentMode) document.getElementById('btn-exit-present').click();
+  }
+});
+
+document.addEventListener('keyup', e => {
+  if (e.key === ' ') {
+    spaceHeld = false;
+    if (state.tool === 'pan' && state.prevTool !== 'pan') setTool(state.prevTool);
+  }
+});
+
+// ─────────────────────────────────────────────
+// FABRIC EVENTS
+// ─────────────────────────────────────────────
+fabricCanvas.on('object:modified', saveHistory);
+fabricCanvas.on('path:created', saveHistory);
+fabricCanvas.on('selection:created', updatePropsFromSelection);
+fabricCanvas.on('selection:updated', updatePropsFromSelection);
+
+function updatePropsFromSelection() {
+  const obj = fabricCanvas.getActiveObject(); if (!obj) return;
+  if (obj.stroke) { state.strokeColor = obj.stroke; document.getElementById('prop-stroke').value = rgbToHex(obj.stroke) || state.strokeColor; }
+  if (obj.strokeWidth) { state.strokeWidth = obj.strokeWidth; document.getElementById('prop-stroke-width').value = obj.strokeWidth; document.getElementById('stroke-width-val').textContent = obj.strokeWidth; }
+  if (obj.opacity !== undefined) { document.getElementById('prop-opacity').value = Math.round(obj.opacity*100); document.getElementById('opacity-val').textContent = Math.round(obj.opacity*100)+'%'; }
+  if (obj.fontSize) { state.fontSize = obj.fontSize; document.getElementById('prop-font-size').value = obj.fontSize; }
+}
+
+// ─────────────────────────────────────────────
+// STATUS BAR
+// ─────────────────────────────────────────────
+function updateStatus(key, value) {
+  const map = { tool:'status-tool', coords:'status-coords', objects:'status-objects', image:'status-image' };
+  const labels = { tool:'Tool', objects:'Objects', image:'', coords:'' };
+  const el = document.getElementById(map[key]);
+  if (el) el.textContent = labels[key] ? `${labels[key]}: ${value}` : value;
+}
+
+// ─────────────────────────────────────────────
+// UTILITIES
+// ─────────────────────────────────────────────
+function hexToRgba(hex, alpha=1) {
+  if (!hex || hex === 'transparent') return 'transparent';
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
+function rgbToHex(rgb) {
+  if (!rgb) return null;
+  if (rgb.startsWith('#')) return rgb;
+  const m = rgb.match(/\d+/g);
+  if (!m || m.length < 3) return null;
+  return '#' + m.slice(0,3).map(x => parseInt(x).toString(16).padStart(2,'0')).join('');
+}
+
+// ─────────────────────────────────────────────
+// RESIZE
+// ─────────────────────────────────────────────
+window.addEventListener('resize', () => { resizeCanvas(); resizeLaserCanvas(); if (state.isCropping) sizeCropOverlay(); });
+
+// ─────────────────────────────────────────────
+// INIT
+// ─────────────────────────────────────────────
+(function init() {
+  resizeCanvas();
+  resizeLaserCanvas();
+  setTool('select');
+  updateHistoryButtons();
+  updateStatus('tool', 'Select / Move');
+  updateStatus('coords', 'x: —  y: —');
+  updateStatus('objects', 0);
+  updateStatus('image', 'No image loaded');
+})();
+</script>
+</body>
+</html>
