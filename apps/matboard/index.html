@@ -1,1 +1,1805 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mat Board Calculator — Measure. Cut. Frame.</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* =============================================
+   MAT BOARD CALCULATOR — Global Styles
+   ============================================= */
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,600;0,9..144,700;1,9..144,300&display=swap');
 
+:root {
+  --cream: #F5F0E8;
+  --cream-dark: #EDE7D9;
+  --tan: #C9B99A;
+  --brown: #7A5C3A;
+  --dark: #2C2117;
+  --mat-green: #4A7B5F;
+  --mat-green-light: #6FA688;
+  --warning-amber: #C97B2A;
+  --error-red: #B84040;
+  --window-blue: #4A6B8A;
+  --border-line: rgba(122, 92, 58, 0.25);
+  --shadow: 0 2px 12px rgba(44, 33, 23, 0.12);
+  --shadow-lg: 0 8px 32px rgba(44, 33, 23, 0.18);
+  --radius: 8px;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-mono: 'DM Mono', 'Courier New', monospace;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  font-family: var(--font-mono);
+  background: var(--cream);
+  color: var(--dark);
+  font-size: 13px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+/* =============================================
+   TOP BAR
+   ============================================= */
+#topbar {
+  background: var(--dark);
+  color: var(--cream);
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 58px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 16px rgba(44,33,23,0.3);
+}
+
+.app-title {
+  font-family: var(--font-display);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--cream);
+}
+
+.app-subtitle {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--tan);
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  margin-left: 12px;
+  opacity: 0.85;
+}
+
+.topbar-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.btn {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  padding: 7px 14px;
+  border-radius: 5px;
+  border: 1.5px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: rgba(201,185,154,0.35);
+  color: var(--tan);
+}
+.btn-ghost:hover {
+  border-color: var(--tan);
+  color: var(--cream);
+  background: rgba(201,185,154,0.1);
+}
+
+.btn-primary {
+  background: var(--mat-green);
+  border-color: var(--mat-green);
+  color: white;
+}
+.btn-primary:hover { background: var(--mat-green-light); border-color: var(--mat-green-light); }
+
+.btn-secondary {
+  background: var(--cream);
+  border-color: var(--border-line);
+  color: var(--dark);
+}
+.btn-secondary:hover { background: var(--cream-dark); border-color: var(--tan); }
+
+.btn-sm { padding: 5px 10px; font-size: 10px; }
+
+/* =============================================
+   MAIN LAYOUT
+   ============================================= */
+#app {
+  display: grid;
+  grid-template-columns: 310px 1fr 280px;
+  grid-template-rows: 1fr;
+  gap: 0;
+  height: calc(100vh - 58px);
+  overflow: hidden;
+}
+
+.panel {
+  overflow-y: auto;
+  padding: 20px;
+}
+
+/* =============================================
+   LEFT PANEL — Inputs
+   ============================================= */
+#panel-inputs {
+  background: white;
+  border-right: 1.5px solid var(--border-line);
+}
+
+.section {
+  margin-bottom: 24px;
+}
+
+.section-label {
+  font-family: var(--font-mono);
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: var(--tan);
+  margin-bottom: 10px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--cream-dark);
+}
+
+.field-group {
+  margin-bottom: 14px;
+}
+
+label {
+  display: block;
+  font-size: 11px;
+  color: var(--brown);
+  margin-bottom: 4px;
+  font-weight: 500;
+}
+
+input[type="number"], input[type="text"], select {
+  width: 100%;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  color: var(--dark);
+  background: var(--cream);
+  border: 1.5px solid var(--border-line);
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  transition: border-color 0.15s;
+  -moz-appearance: textfield;
+}
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button { -webkit-appearance: none; }
+
+input:focus, select:focus {
+  outline: none;
+  border-color: var(--mat-green);
+  background: white;
+}
+
+select { cursor: pointer; }
+
+.row-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Unit Toggle */
+.unit-toggle {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 16px;
+}
+.unit-btn {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  padding: 6px;
+  border: 1.5px solid var(--border-line);
+  border-radius: 5px;
+  background: var(--cream);
+  color: var(--brown);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.unit-btn.active {
+  background: var(--dark);
+  color: var(--cream);
+  border-color: var(--dark);
+}
+
+/* Mode tabs */
+.mode-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 14px;
+}
+.mode-tab {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  padding: 5px 9px;
+  border: 1.5px solid var(--border-line);
+  border-radius: 4px;
+  background: var(--cream);
+  color: var(--brown);
+  cursor: pointer;
+  transition: all 0.15s;
+  line-height: 1.2;
+}
+.mode-tab.active {
+  background: var(--brown);
+  color: var(--cream);
+  border-color: var(--brown);
+}
+
+.mode-panel { display: none; }
+.mode-panel.active { display: block; }
+
+/* Tooltip */
+.tip {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  background: var(--tan);
+  color: white;
+  border-radius: 50%;
+  font-size: 9px;
+  text-align: center;
+  line-height: 14px;
+  cursor: help;
+  margin-left: 4px;
+  position: relative;
+}
+.tip:hover::after {
+  content: attr(data-tip);
+  position: absolute;
+  left: 18px;
+  top: -4px;
+  background: var(--dark);
+  color: var(--cream);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  padding: 6px 10px;
+  border-radius: 5px;
+  white-space: nowrap;
+  z-index: 200;
+  max-width: 220px;
+  white-space: normal;
+  width: 180px;
+  line-height: 1.4;
+}
+
+/* =============================================
+   CENTER PANEL — Preview
+   ============================================= */
+#panel-preview {
+  background: var(--cream-dark);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.preview-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 16px;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+#preview-canvas-container {
+  background: white;
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  padding: 24px;
+  max-width: 100%;
+  position: relative;
+}
+
+#mat-preview {
+  display: block;
+  max-width: 100%;
+}
+
+/* =============================================
+   RIGHT PANEL — Results
+   ============================================= */
+#panel-results {
+  background: var(--dark);
+  color: var(--cream);
+  border-left: 1.5px solid rgba(255,255,255,0.05);
+}
+
+#panel-results .section-label {
+  color: var(--tan);
+  border-bottom-color: rgba(201,185,154,0.2);
+}
+
+.result-block {
+  background: rgba(255,255,255,0.05);
+  border-radius: var(--radius);
+  padding: 14px;
+  margin-bottom: 10px;
+}
+
+.result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 4px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+  gap: 8px;
+}
+.result-row:last-child { border-bottom: none; }
+
+.result-key {
+  font-size: 10.5px;
+  color: var(--tan);
+  flex-shrink: 0;
+}
+
+.result-val {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--cream);
+  text-align: right;
+}
+
+.result-val.highlight {
+  color: var(--mat-green-light);
+  font-size: 15px;
+}
+
+/* Display mode toggle */
+.display-toggle {
+  display: flex;
+  gap: 3px;
+  margin-bottom: 12px;
+}
+.disp-btn {
+  flex: 1;
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  padding: 5px;
+  border: 1px solid rgba(201,185,154,0.25);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--tan);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+.disp-btn.active {
+  background: var(--mat-green);
+  color: white;
+  border-color: var(--mat-green);
+}
+
+/* Warnings */
+.warnings-area { margin-top: 6px; }
+.warning-item {
+  font-size: 10.5px;
+  padding: 8px 10px;
+  border-radius: 5px;
+  margin-bottom: 6px;
+  line-height: 1.4;
+  display: flex;
+  gap: 6px;
+  align-items: flex-start;
+}
+.warning-item.warn {
+  background: rgba(201,123,42,0.2);
+  color: #E8A85A;
+  border-left: 3px solid var(--warning-amber);
+}
+.warning-item.error {
+  background: rgba(184,64,64,0.2);
+  color: #E8827A;
+  border-left: 3px solid var(--error-red);
+}
+.warning-item.ok {
+  background: rgba(74,123,95,0.2);
+  color: var(--mat-green-light);
+  border-left: 3px solid var(--mat-green);
+}
+
+/* Cutting steps */
+.cut-steps {
+  font-size: 11px;
+  line-height: 1.8;
+  color: var(--cream);
+  opacity: 0.85;
+}
+.cut-steps li { margin-left: 14px; margin-bottom: 2px; }
+
+/* =============================================
+   BATCH MODE
+   ============================================= */
+#batch-section {
+  display: none;
+  background: white;
+  border-top: 2px solid var(--border-line);
+  padding: 20px;
+  overflow-x: auto;
+}
+
+#batch-section.visible { display: block; }
+
+.batch-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 11.5px;
+}
+
+th {
+  background: var(--cream-dark);
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: var(--brown);
+  padding: 8px 10px;
+  text-align: left;
+  border-bottom: 1.5px solid var(--border-line);
+}
+
+td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--cream-dark);
+  vertical-align: middle;
+}
+
+td input, td select {
+  font-size: 11.5px;
+  padding: 4px 6px;
+}
+
+tr:hover td { background: var(--cream); }
+
+.batch-result-cell {
+  font-weight: 500;
+  color: var(--mat-green);
+}
+
+/* =============================================
+   FRACTION DISPLAY
+   ============================================= */
+.frac {
+  display: inline;
+}
+
+/* =============================================
+   PRINT STYLES
+   ============================================= */
+@media print {
+  #topbar, #panel-inputs, #panel-results, .preview-toolbar, .topbar-actions,
+  #batch-section, .no-print { display: none !important; }
+
+  #app {
+    grid-template-columns: 1fr;
+    height: auto;
+    overflow: visible;
+  }
+
+  #panel-preview {
+    display: block;
+    background: white;
+    padding: 0;
+  }
+
+  #print-sheet {
+    display: block !important;
+  }
+
+  body { background: white; }
+  * { box-shadow: none !important; }
+}
+
+#print-sheet {
+  display: none;
+  font-family: var(--font-mono);
+}
+
+/* =============================================
+   ROUNDING SECTION
+   ============================================= */
+.mini-label {
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: var(--tan);
+  margin-bottom: 4px;
+  margin-top: 10px;
+}
+
+/* Divider */
+.divider {
+  height: 1px;
+  background: var(--cream-dark);
+  margin: 16px 0;
+}
+
+/* Dark divider */
+#panel-results .divider {
+  background: rgba(255,255,255,0.07);
+}
+
+/* =============================================
+   RESPONSIVE
+   ============================================= */
+@media (max-width: 900px) {
+  #app {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+    height: auto;
+    overflow: auto;
+  }
+  #panel-inputs, #panel-results, #panel-preview {
+    overflow: visible;
+    max-height: none;
+  }
+  #panel-preview { padding: 16px; }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--tan); border-radius: 3px; opacity: 0.5; }
+</style>
+</head>
+<body>
+
+<!-- =============================================
+     TOP BAR
+     ============================================= -->
+<div id="topbar">
+  <div style="display:flex;align-items:baseline;gap:4px;">
+    <span class="app-title">Mat Board Calculator</span>
+    <span class="app-subtitle">Measure · Cut · Frame</span>
+  </div>
+  <div class="topbar-actions">
+    <button class="btn btn-ghost" onclick="toggleBatch()">⊞ Batch Mode</button>
+    <button class="btn btn-ghost" onclick="copyMeasurements()">⎘ Copy</button>
+    <button class="btn btn-ghost" onclick="exportCSV()">↓ CSV</button>
+    <button class="btn btn-ghost" onclick="exportPDF()">↓ PDF</button>
+    <button class="btn btn-primary" onclick="window.print()">⎙ Print</button>
+  </div>
+</div>
+
+<!-- =============================================
+     MAIN APP
+     ============================================= -->
+<div id="app">
+
+  <!-- LEFT: INPUTS -->
+  <div id="panel-inputs" class="panel">
+
+    <!-- Units -->
+    <div class="section">
+      <div class="section-label">Units</div>
+      <div class="unit-toggle">
+        <div class="unit-btn active" data-unit="in" onclick="setUnit('in')">Inches</div>
+        <div class="unit-btn" data-unit="cm" onclick="setUnit('cm')">cm</div>
+        <div class="unit-btn" data-unit="mm" onclick="setUnit('mm')">mm</div>
+      </div>
+
+      <div class="mini-label">Rounding</div>
+      <select id="rounding-select" onchange="savePrefs();calculate()">
+        <option value="0">No rounding</option>
+        <option value="0.0625" selected>Nearest 1/16"</option>
+        <option value="0.125">Nearest 1/8"</option>
+        <option value="0.25">Nearest 1/4"</option>
+      </select>
+      <div style="font-size:9.5px;color:var(--tan);margin-top:4px;">Rounding may slightly change final fit.</div>
+    </div>
+
+    <!-- Artwork Size -->
+    <div class="section">
+      <div class="section-label">Artwork Size <span class="tip" data-tip="The actual size of your artwork, photo, or print before matting.">?</span></div>
+      <div class="field-group">
+        <label>Preset</label>
+        <select id="artwork-preset" onchange="applyArtworkPreset()">
+          <option value="">— Custom —</option>
+          <option value="4x6">4 × 6 photo</option>
+          <option value="5x7">5 × 7 photo</option>
+          <option value="8x10">8 × 10 photo</option>
+          <option value="8.5x11">8.5 × 11 letter</option>
+          <option value="9x12">9 × 12</option>
+          <option value="11x14">11 × 14</option>
+          <option value="12x18">12 × 18</option>
+          <option value="16x20">16 × 20</option>
+          <option value="18x24">18 × 24</option>
+        </select>
+      </div>
+      <div class="row-2">
+        <div class="field-group">
+          <label>Width</label>
+          <input type="number" id="artwork-w" value="8" min="0.5" step="0.0625" oninput="calculate()">
+        </div>
+        <div class="field-group">
+          <label>Height</label>
+          <input type="number" id="artwork-h" value="10" min="0.5" step="0.0625" oninput="calculate()">
+        </div>
+      </div>
+    </div>
+
+    <!-- Border Mode -->
+    <div class="section">
+      <div class="section-label">Border Mode <span class="tip" data-tip="Choose how borders are calculated. 'Equal' is most common for framing.">?</span></div>
+      <div class="mode-tabs">
+        <div class="mode-tab active" data-mode="equal" onclick="setMode('equal')">Equal</div>
+        <div class="mode-tab" data-mode="custom" onclick="setMode('custom')">Custom</div>
+        <div class="mode-tab" data-mode="weighted" onclick="setMode('weighted')">Weighted Bottom</div>
+        <div class="mode-tab" data-mode="build" onclick="setMode('build')">Build from Art</div>
+        <div class="mode-tab" data-mode="fit" onclick="setMode('fit')">Fit to Frame</div>
+      </div>
+
+      <!-- Equal Mode -->
+      <div id="mode-equal" class="mode-panel active">
+        <div class="field-group">
+          <label>Mat / Frame Preset</label>
+          <select id="mat-preset-equal" onchange="applyMatPreset('equal')">
+            <option value="">— Custom —</option>
+            <option value="8x10">8 × 10</option>
+            <option value="11x14" selected>11 × 14</option>
+            <option value="12x16">12 × 16</option>
+            <option value="16x20">16 × 20</option>
+            <option value="18x24">18 × 24</option>
+            <option value="20x24">20 × 24</option>
+            <option value="22x28">22 × 28</option>
+            <option value="24x36">24 × 36</option>
+          </select>
+        </div>
+        <div class="row-2">
+          <div class="field-group">
+            <label>Mat Width</label>
+            <input type="number" id="mat-w-equal" value="11" min="1" step="0.0625" oninput="calculate()">
+          </div>
+          <div class="field-group">
+            <label>Mat Height</label>
+            <input type="number" id="mat-h-equal" value="14" min="1" step="0.0625" oninput="calculate()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Mode -->
+      <div id="mode-custom" class="mode-panel">
+        <div style="font-size:10.5px;color:var(--brown);margin-bottom:10px;">Enter border sizes — mat size is calculated.</div>
+        <div class="row-2">
+          <div class="field-group">
+            <label>Top Border</label>
+            <input type="number" id="border-top" value="2" min="0" step="0.0625" oninput="calculate()">
+          </div>
+          <div class="field-group">
+            <label>Bottom Border</label>
+            <input type="number" id="border-bottom" value="2" min="0" step="0.0625" oninput="calculate()">
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="field-group">
+            <label>Left Border</label>
+            <input type="number" id="border-left" value="1.5" min="0" step="0.0625" oninput="calculate()">
+          </div>
+          <div class="field-group">
+            <label>Right Border</label>
+            <input type="number" id="border-right" value="1.5" min="0" step="0.0625" oninput="calculate()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Weighted Mode -->
+      <div id="mode-weighted" class="mode-panel">
+        <div class="field-group">
+          <label>Mat / Frame Preset</label>
+          <select id="mat-preset-weighted" onchange="applyMatPreset('weighted')">
+            <option value="">— Custom —</option>
+            <option value="8x10">8 × 10</option>
+            <option value="11x14" selected>11 × 14</option>
+            <option value="12x16">12 × 16</option>
+            <option value="16x20">16 × 20</option>
+            <option value="18x24">18 × 24</option>
+            <option value="20x24">20 × 24</option>
+          </select>
+        </div>
+        <div class="row-2">
+          <div class="field-group">
+            <label>Mat Width</label>
+            <input type="number" id="mat-w-weighted" value="11" min="1" step="0.0625" oninput="calculate()">
+          </div>
+          <div class="field-group">
+            <label>Mat Height</label>
+            <input type="number" id="mat-h-weighted" value="14" min="1" step="0.0625" oninput="calculate()">
+          </div>
+        </div>
+        <div class="field-group">
+          <label>Bottom Weight <span class="tip" data-tip="Extra amount added to bottom border. Common practice in fine framing to give artwork more visual weight.">?</span></label>
+          <select id="weight-amount" onchange="calculate()">
+            <option value="0.25">+1/4" (subtle)</option>
+            <option value="0.5" selected>+1/2" (standard)</option>
+            <option value="1.0">+1" (bold)</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Build Mode -->
+      <div id="mode-build" class="mode-panel">
+        <div style="font-size:10.5px;color:var(--brown);margin-bottom:10px;">Set borders → mat size is calculated.</div>
+        <div class="row-2">
+          <div class="field-group">
+            <label>Top Border</label>
+            <input type="number" id="build-top" value="2.5" min="0" step="0.0625" oninput="calculate()">
+          </div>
+          <div class="field-group">
+            <label>Bottom Border</label>
+            <input type="number" id="build-bottom" value="3" min="0" step="0.0625" oninput="calculate()">
+          </div>
+        </div>
+        <div class="row-2">
+          <div class="field-group">
+            <label>Left Border</label>
+            <input type="number" id="build-left" value="2" min="0" step="0.0625" oninput="calculate()">
+          </div>
+          <div class="field-group">
+            <label>Right Border</label>
+            <input type="number" id="build-right" value="2" min="0" step="0.0625" oninput="calculate()">
+          </div>
+        </div>
+      </div>
+
+      <!-- Fit Mode -->
+      <div id="mode-fit" class="mode-panel">
+        <div style="font-size:10.5px;color:var(--brown);margin-bottom:10px;">Frame size → borders are calculated.</div>
+        <div class="field-group">
+          <label>Frame Preset</label>
+          <select id="frame-preset" onchange="applyMatPreset('fit')">
+            <option value="">— Custom —</option>
+            <option value="8x10">8 × 10</option>
+            <option value="11x14" selected>11 × 14</option>
+            <option value="12x16">12 × 16</option>
+            <option value="16x20">16 × 20</option>
+            <option value="18x24">18 × 24</option>
+            <option value="20x24">20 × 24</option>
+          </select>
+        </div>
+        <div class="row-2">
+          <div class="field-group">
+            <label>Frame Width</label>
+            <input type="number" id="frame-w" value="11" min="1" step="0.0625" oninput="calculate()">
+          </div>
+          <div class="field-group">
+            <label>Frame Height</label>
+            <input type="number" id="frame-h" value="14" min="1" step="0.0625" oninput="calculate()">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Overlap -->
+    <div class="section">
+      <div class="section-label">Window Overlap <span class="tip" data-tip="The mat overlaps the artwork edges to hold it in place. Default 1/8 inch. Adjust for thicker media.">?</span></div>
+      <div class="field-group">
+        <label>Overlap per side</label>
+        <select id="overlap-preset" onchange="applyOverlapPreset()">
+          <option value="0.0625">1/16" (minimal)</option>
+          <option value="0.125" selected>1/8" (standard)</option>
+          <option value="0.1875">3/16"</option>
+          <option value="0.25">1/4" (generous)</option>
+          <option value="custom">Custom...</option>
+        </select>
+      </div>
+      <div class="field-group" id="overlap-custom-group" style="display:none;">
+        <label>Custom overlap (per side)</label>
+        <input type="number" id="overlap-custom" value="0.125" min="0" max="1" step="0.0625" oninput="calculate()">
+      </div>
+    </div>
+
+    <!-- Options -->
+    <div class="section">
+      <div class="section-label">Options</div>
+      <div class="field-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--dark);">
+          <input type="checkbox" id="show-backing" onchange="calculate()" style="width:auto;">
+          Show backing board size
+        </label>
+      </div>
+      <div class="field-group">
+        <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--dark);">
+          <input type="checkbox" id="show-frame" onchange="calculate()" style="width:auto;">
+          Show frame size
+        </label>
+      </div>
+      <div class="field-group" id="project-name-group">
+        <label>Project / Student Name</label>
+        <input type="text" id="project-name" placeholder="e.g. Jane Smith" oninput="savePrefs()">
+      </div>
+    </div>
+
+  </div><!-- /panel-inputs -->
+
+  <!-- CENTER: PREVIEW -->
+  <div id="panel-preview" class="panel">
+    <div class="preview-toolbar no-print">
+      <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--brown);font-family:var(--font-mono);">Live Preview</span>
+      <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;color:var(--brown);">
+        <input type="checkbox" id="show-labels" checked onchange="drawPreview()" style="width:auto;"> Labels
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;color:var(--brown);">
+        <input type="checkbox" id="show-artwork" checked onchange="drawPreview()" style="width:auto;"> Artwork
+      </label>
+      <label style="display:flex;align-items:center;gap:4px;font-size:10px;cursor:pointer;color:var(--brown);">
+        <input type="checkbox" id="show-cutlines" onchange="drawPreview()" style="width:auto;"> Cut lines
+      </label>
+    </div>
+    <div id="preview-canvas-container">
+      <canvas id="mat-preview" width="540" height="460"></canvas>
+    </div>
+  </div>
+
+  <!-- RIGHT: RESULTS -->
+  <div id="panel-results" class="panel">
+
+    <div class="section">
+      <div class="section-label">Display</div>
+      <div class="display-toggle">
+        <div class="disp-btn active" data-disp="frac" onclick="setDisplay('frac')">Fractions</div>
+        <div class="disp-btn" data-disp="dec" onclick="setDisplay('dec')">Decimal</div>
+        <div class="disp-btn" data-disp="both" onclick="setDisplay('both')">Both</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Measurements</div>
+      <div class="result-block">
+        <div class="result-row">
+          <span class="result-key">Outside Mat</span>
+          <span class="result-val highlight" id="r-mat-size">—</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Window Opening</span>
+          <span class="result-val highlight" id="r-window-size">—</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Artwork</span>
+          <span class="result-val" id="r-artwork-size">—</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Overlap</span>
+          <span class="result-val" id="r-overlap">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Borders</div>
+      <div class="result-block">
+        <div class="result-row">
+          <span class="result-key">Top</span>
+          <span class="result-val" id="r-top">—</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Bottom</span>
+          <span class="result-val" id="r-bottom">—</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Left</span>
+          <span class="result-val" id="r-left">—</span>
+        </div>
+        <div class="result-row">
+          <span class="result-key">Right</span>
+          <span class="result-val" id="r-right">—</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section" id="r-extras-section" style="display:none;">
+      <div class="section-label">Additional</div>
+      <div class="result-block" id="r-extras"></div>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Cutting Guide</div>
+      <ol class="cut-steps" id="r-cut-steps">
+        <li>Enter artwork and mat sizes to generate cutting steps.</li>
+      </ol>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Warnings</div>
+      <div class="warnings-area" id="r-warnings">
+        <div class="warning-item ok">✓ Enter values above to calculate.</div>
+      </div>
+    </div>
+
+  </div><!-- /panel-results -->
+</div><!-- /app -->
+
+<!-- BATCH SECTION -->
+<div id="batch-section">
+  <div class="batch-header">
+    <div>
+      <span style="font-family:var(--font-display);font-size:18px;font-weight:600;">Class Batch Calculator</span>
+      <span style="font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--tan);margin-left:12px;">for teachers</span>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+      <button class="btn btn-secondary btn-sm" onclick="addBatchRow()">+ Add Row</button>
+      <button class="btn btn-secondary btn-sm" onclick="importBatchCSV()">↑ Import CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="exportBatchCSV()">↓ Export CSV</button>
+      <button class="btn btn-secondary btn-sm" onclick="window.print()">⎙ Print List</button>
+      <button class="btn btn-ghost btn-sm" onclick="toggleBatch()">✕ Close</button>
+    </div>
+  </div>
+  <table id="batch-table">
+    <thead>
+      <tr>
+        <th>Student / Name</th>
+        <th>Art W</th>
+        <th>Art H</th>
+        <th>Mat W</th>
+        <th>Mat H</th>
+        <th>Overlap</th>
+        <th>Mode</th>
+        <th>Window W</th>
+        <th>Window H</th>
+        <th>Left</th>
+        <th>Right</th>
+        <th>Top</th>
+        <th>Bottom</th>
+        <th>Warnings</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody id="batch-body">
+    </tbody>
+  </table>
+</div>
+
+<!-- PRINT SHEET (hidden, shown on print) -->
+<div id="print-sheet">
+  <div style="padding:40px;font-family:'DM Mono',monospace;max-width:750px;margin:0 auto;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:24px;border-bottom:2px solid #2C2117;padding-bottom:16px;">
+      <div>
+        <div style="font-family:Fraunces,serif;font-size:26px;font-weight:700;">Mat Board Calculator</div>
+        <div style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#7A5C3A;margin-top:2px;">Cutting Sheet</div>
+      </div>
+      <div style="text-align:right;font-size:11px;color:#7A5C3A;">
+        <div id="ps-name"></div>
+        <div id="ps-date"></div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#7A5C3A;margin-bottom:8px;border-bottom:1px solid #EDE7D9;padding-bottom:4px;">Measurements</div>
+        <div id="ps-measurements" style="font-size:12px;line-height:2;"></div>
+      </div>
+      <div>
+        <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#7A5C3A;margin-bottom:8px;border-bottom:1px solid #EDE7D9;padding-bottom:4px;">Borders</div>
+        <div id="ps-borders" style="font-size:12px;line-height:2;"></div>
+      </div>
+    </div>
+    <div style="margin-bottom:24px;">
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#7A5C3A;margin-bottom:8px;border-bottom:1px solid #EDE7D9;padding-bottom:4px;">Cutting Steps</div>
+      <ol id="ps-steps" style="font-size:11.5px;line-height:1.9;padding-left:18px;"></ol>
+    </div>
+    <div style="border:1px solid #C9B99A;border-radius:6px;padding:12px;min-height:60px;">
+      <div style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#7A5C3A;margin-bottom:6px;">Notes</div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* =============================================
+   MAT BOARD CALCULATOR — Core Logic
+   ============================================= */
+
+// ─── State ───────────────────────────────────
+let state = {
+  unit: 'in',
+  mode: 'equal',
+  displayMode: 'frac',
+  rounding: 0.0625,
+  // Results
+  artW: 8, artH: 10,
+  matW: 11, matH: 14,
+  windowW: 0, windowH: 0,
+  top: 0, bottom: 0, left: 0, right: 0,
+  overlap: 0.125,
+  warnings: []
+};
+
+// ─── Presets ─────────────────────────────────
+const ARTWORK_PRESETS = {
+  '4x6': [4,6], '5x7': [5,7], '8x10': [8,10], '8.5x11': [8.5,11],
+  '9x12': [9,12], '11x14': [11,14], '12x18': [12,18], '16x20': [16,20], '18x24': [18,24]
+};
+const MAT_PRESETS = {
+  '8x10': [8,10], '11x14': [11,14], '12x16': [12,16], '16x20': [16,20],
+  '18x24': [18,24], '20x24': [20,24], '22x28': [22,28], '24x36': [24,36]
+};
+
+// ─── Unit Conversion ────────────────────────
+const TO_IN = { in: 1, cm: 0.393701, mm: 0.0393701 };
+const FROM_IN = { in: 1, cm: 2.54, mm: 25.4 };
+
+function toIn(v) { return v * TO_IN[state.unit]; }
+function fromIn(v) { return v * FROM_IN[state.unit]; }
+
+// ─── Fraction Display ────────────────────────
+const FRACS = [
+  [0, ''], [1/16, '1/16'], [1/8, '1/8'], [3/16, '3/16'],
+  [1/4, '1/4'], [5/16, '5/16'], [3/8, '3/8'], [7/16, '7/16'],
+  [1/2, '1/2'], [9/16, '9/16'], [5/8, '5/8'], [11/16, '11/16'],
+  [3/4, '3/4'], [13/16, '13/16'], [7/8, '7/8'], [15/16, '15/16']
+];
+
+function toFraction(val) {
+  if (state.unit !== 'in') return val.toFixed(1);
+  const neg = val < 0;
+  val = Math.abs(val);
+  const whole = Math.floor(val);
+  const frac = val - whole;
+  // find closest
+  let best = FRACS[0], bestDiff = 1;
+  for (const [f, label] of FRACS) {
+    const d = Math.abs(frac - f);
+    if (d < bestDiff) { bestDiff = d; best = [f, label]; }
+  }
+  const [, fracLabel] = best;
+  let s = '';
+  if (whole > 0) s += whole;
+  if (fracLabel) s += (whole > 0 ? ' ' : '') + fracLabel;
+  if (!s) s = '0';
+  return (neg ? '−' : '') + s;
+}
+
+function formatVal(val, unitSuffix = true) {
+  const u = unitSuffix ? ' ' + state.unit : '';
+  if (state.displayMode === 'dec') return val.toFixed(state.unit === 'mm' ? 0 : 3).replace(/\.?0+$/, '') + u;
+  if (state.displayMode === 'frac') return toFraction(val) + (state.unit !== 'in' ? (val.toFixed(1) + u) : '"');
+  // both
+  return toFraction(val) + '" (' + val.toFixed(3).replace(/\.?0+$/, '') + u + ')';
+}
+
+function formatPair(w, h) {
+  return formatVal(w, false) + ' × ' + formatVal(h, false) + ' ' + state.unit;
+}
+
+// ─── Rounding ────────────────────────────────
+function applyRounding(v) {
+  const r = parseFloat(document.getElementById('rounding-select').value);
+  if (!r) return v;
+  // Convert rounding to current unit
+  const rUnit = r * FROM_IN[state.unit];
+  return Math.round(v / rUnit) * rUnit;
+}
+
+// ─── Get overlap ─────────────────────────────
+function getOverlap() {
+  const sel = document.getElementById('overlap-preset').value;
+  if (sel === 'custom') {
+    return parseFloat(document.getElementById('overlap-custom').value) || 0.125;
+  }
+  return parseFloat(sel);
+}
+
+// ─── Main Calculate ──────────────────────────
+function calculate() {
+  const artW = parseFloat(document.getElementById('artwork-w').value) || 0;
+  const artH = parseFloat(document.getElementById('artwork-h').value) || 0;
+  const overlap = getOverlap();
+  const windowW = applyRounding(artW - 2 * overlap);
+  const windowH = applyRounding(artH - 2 * overlap);
+  const minBorder = 0.75;
+
+  let matW, matH, top, bottom, left, right;
+  const warnings = [];
+
+  switch (state.mode) {
+    case 'equal': {
+      matW = parseFloat(document.getElementById('mat-w-equal').value) || 0;
+      matH = parseFloat(document.getElementById('mat-h-equal').value) || 0;
+      left = right = applyRounding((matW - windowW) / 2);
+      top = bottom = applyRounding((matH - windowH) / 2);
+      break;
+    }
+    case 'custom': {
+      top = parseFloat(document.getElementById('border-top').value) || 0;
+      bottom = parseFloat(document.getElementById('border-bottom').value) || 0;
+      left = parseFloat(document.getElementById('border-left').value) || 0;
+      right = parseFloat(document.getElementById('border-right').value) || 0;
+      matW = applyRounding(windowW + left + right);
+      matH = applyRounding(windowH + top + bottom);
+      break;
+    }
+    case 'weighted': {
+      matW = parseFloat(document.getElementById('mat-w-weighted').value) || 0;
+      matH = parseFloat(document.getElementById('mat-h-weighted').value) || 0;
+      const wt = parseFloat(document.getElementById('weight-amount').value) || 0.5;
+      const totalV = matH - windowH;
+      bottom = applyRounding(totalV / 2 + wt / 2);
+      top = applyRounding(totalV - bottom);
+      left = right = applyRounding((matW - windowW) / 2);
+      break;
+    }
+    case 'build': {
+      top = parseFloat(document.getElementById('build-top').value) || 0;
+      bottom = parseFloat(document.getElementById('build-bottom').value) || 0;
+      left = parseFloat(document.getElementById('build-left').value) || 0;
+      right = parseFloat(document.getElementById('build-right').value) || 0;
+      matW = applyRounding(windowW + left + right);
+      matH = applyRounding(windowH + top + bottom);
+      break;
+    }
+    case 'fit': {
+      matW = parseFloat(document.getElementById('frame-w').value) || 0;
+      matH = parseFloat(document.getElementById('frame-h').value) || 0;
+      left = right = applyRounding((matW - windowW) / 2);
+      top = bottom = applyRounding((matH - windowH) / 2);
+      break;
+    }
+  }
+
+  // Validation
+  if (!artW || !artH) { warnings.push({type:'error', msg:'Enter artwork dimensions.'}); }
+  if (artW > matW || artH > matH) { warnings.push({type:'error', msg:'Artwork is larger than the selected mat size.'}); }
+  if (windowW <= 0 || windowH <= 0) { warnings.push({type:'error', msg:'Window opening is too small. Reduce overlap or increase artwork size.'}); }
+  if (windowW > matW || windowH > matH) { warnings.push({type:'error', msg:'Window opening is larger than the outside mat.'}); }
+  if (overlap > artW * 0.2 || overlap > artH * 0.2) { warnings.push({type:'warn', msg:'Overlap is quite large relative to artwork size.'}); }
+  if (top < minBorder && top > 0) { warnings.push({type:'warn', msg:`Top border (${formatVal(top)}) is very narrow — may be hard to cut.`}); }
+  if (bottom < minBorder && bottom > 0) { warnings.push({type:'warn', msg:`Bottom border (${formatVal(bottom)}) is very narrow — may be hard to cut.`}); }
+  if (left < minBorder && left > 0) { warnings.push({type:'warn', msg:`Left border (${formatVal(left)}) is very narrow — may be hard to cut.`}); }
+  if (right < minBorder && right > 0) { warnings.push({type:'warn', msg:`Right border (${formatVal(right)}) is very narrow — may be hard to cut.`}); }
+  if (top < 0 || bottom < 0 || left < 0 || right < 0) { warnings.push({type:'error', msg:'Frame size is too small for this artwork. Borders are negative.'}); }
+  if (warnings.length === 0) { warnings.push({type:'ok', msg:'✓ Measurements look good!'}); }
+
+  // Save to state
+  Object.assign(state, { artW, artH, matW, matH, windowW, windowH, top, bottom, left, right, overlap, warnings });
+
+  updateResults();
+  drawPreview();
+  updatePrintSheet();
+  savePrefs();
+}
+
+// ─── Update Results Panel ─────────────────────
+function updateResults() {
+  const { artW, artH, matW, matH, windowW, windowH, top, bottom, left, right, overlap, warnings } = state;
+
+  document.getElementById('r-mat-size').textContent = formatPair(matW, matH);
+  document.getElementById('r-window-size').textContent = formatPair(windowW, windowH);
+  document.getElementById('r-artwork-size').textContent = formatPair(artW, artH);
+  document.getElementById('r-overlap').textContent = formatVal(overlap) + ' per side';
+  document.getElementById('r-top').textContent = formatVal(top);
+  document.getElementById('r-bottom').textContent = formatVal(bottom);
+  document.getElementById('r-left').textContent = formatVal(left);
+  document.getElementById('r-right').textContent = formatVal(right);
+
+  // Extras
+  const extrasSection = document.getElementById('r-extras-section');
+  const extrasDiv = document.getElementById('r-extras');
+  let extrasHTML = '';
+  if (document.getElementById('show-backing').checked) {
+    extrasHTML += `<div class="result-row"><span class="result-key">Backing Board</span><span class="result-val">${formatPair(matW, matH)}</span></div>`;
+  }
+  if (document.getElementById('show-frame').checked) {
+    const fw = matW + 0.125, fh = matH + 0.125;
+    extrasHTML += `<div class="result-row"><span class="result-key">Frame Rabbet</span><span class="result-val">${formatPair(fw, fh)}</span></div>`;
+  }
+  extrasSection.style.display = extrasHTML ? 'block' : 'none';
+  extrasDiv.innerHTML = extrasHTML;
+
+  // Cutting steps
+  const steps = [
+    `Cut mat board to outside size: <strong>${formatPair(matW, matH)}</strong>`,
+    `Mark left edge: measure ${formatVal(left)} from left side`,
+    `Mark right edge: measure ${formatVal(right)} from right side`,
+    `Mark top edge: measure ${formatVal(top)} from top`,
+    `Mark bottom edge: measure ${formatVal(bottom)} from bottom`,
+    `Window opening size: <strong>${formatPair(windowW, windowH)}</strong>`,
+    `Overlap per side: ${formatVal(overlap)} — mat covers artwork edge by this amount`,
+  ];
+  document.getElementById('r-cut-steps').innerHTML = steps.map(s => `<li>${s}</li>`).join('');
+
+  // Warnings
+  const wEl = document.getElementById('r-warnings');
+  wEl.innerHTML = warnings.map(w => `<div class="warning-item ${w.type}">${w.msg}</div>`).join('');
+}
+
+// ─── Canvas Preview ──────────────────────────
+function drawPreview() {
+  const canvas = document.getElementById('mat-preview');
+  const ctx = canvas.getContext('2d');
+  const { matW, matH, windowW, windowH, artW, artH, top, bottom, left, right } = state;
+
+  const W = canvas.width = canvas.offsetWidth || 540;
+  const H = canvas.height = 420;
+  ctx.clearRect(0, 0, W, H);
+
+  if (!matW || !matH) return;
+
+  const PAD = 48;
+  const scale = Math.min((W - PAD*2) / matW, (H - PAD*2) / matH);
+
+  const mw = matW * scale, mh = matH * scale;
+  const ox = (W - mw) / 2, oy = (H - mh) / 2;
+
+  const ww = windowW * scale, wh = windowH * scale;
+  const wx = ox + left * scale, wy = oy + top * scale;
+
+  const aw = artW * scale, ah = artH * scale;
+  const ax = wx - state.overlap * scale, ay = wy - state.overlap * scale;
+
+  const showArtwork = document.getElementById('show-artwork').checked;
+  const showLabels = document.getElementById('show-labels').checked;
+  const showCutlines = document.getElementById('show-cutlines').checked;
+
+  // Shadow
+  ctx.shadowColor = 'rgba(44,33,23,0.18)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 4;
+
+  // Mat board
+  ctx.fillStyle = '#E8DFD0';
+  ctx.beginPath();
+  ctx.roundRect(ox, oy, mw, mh, 3);
+  ctx.fill();
+  ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+
+  // Artwork behind window
+  if (showArtwork && ax >= 0 && ay >= 0) {
+    ctx.fillStyle = '#F0EEE8';
+    ctx.strokeStyle = 'rgba(122,92,58,0.2)';
+    ctx.lineWidth = 1;
+    ctx.fillRect(ax, ay, aw, ah);
+    ctx.strokeRect(ax, ay, aw, ah);
+    // Artwork texture lines
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    ctx.strokeStyle = '#4A6B8A';
+    ctx.lineWidth = 0.5;
+    for (let i = ay; i < ay + ah; i += 8) {
+      ctx.beginPath(); ctx.moveTo(ax, i); ctx.lineTo(ax + aw, i); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // Mat with window cutout
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(0, 0, W, H);
+  if (ww > 0 && wh > 0) {
+    ctx.rect(wx + ww, wy, -ww, wh); // CW hole
+  }
+  ctx.clip('evenodd');
+
+  const matGrad = ctx.createLinearGradient(ox, oy, ox + mw, oy + mh);
+  matGrad.addColorStop(0, '#D4C9B5');
+  matGrad.addColorStop(1, '#C5B9A4');
+  ctx.fillStyle = matGrad;
+  ctx.beginPath();
+  ctx.roundRect(ox, oy, mw, mh, 3);
+  ctx.fill();
+  ctx.restore();
+
+  // Mat border stroke
+  ctx.strokeStyle = 'rgba(122,92,58,0.5)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.roundRect(ox, oy, mw, mh, 3);
+  ctx.stroke();
+
+  // Window opening border
+  if (ww > 0 && wh > 0) {
+    ctx.strokeStyle = 'rgba(74,107,138,0.6)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(wx, wy, ww, wh);
+  }
+
+  // Bevel shadow on window
+  if (ww > 4 && wh > 4) {
+    const grad = ctx.createLinearGradient(wx, wy, wx + 4, wy + 4);
+    grad.addColorStop(0, 'rgba(44,33,23,0.15)');
+    grad.addColorStop(1, 'rgba(44,33,23,0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(wx, wy, ww, 4);
+    ctx.fillRect(wx, wy, 4, wh);
+  }
+
+  // Cut lines
+  if (showCutlines) {
+    ctx.save();
+    ctx.setLineDash([4, 4]);
+    ctx.strokeStyle = 'rgba(184,64,64,0.6)';
+    ctx.lineWidth = 1;
+    // Horizontal guides
+    ctx.beginPath(); ctx.moveTo(ox, wy); ctx.lineTo(ox + mw, wy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(ox, wy + wh); ctx.lineTo(ox + mw, wy + wh); ctx.stroke();
+    // Vertical guides
+    ctx.beginPath(); ctx.moveTo(wx, oy); ctx.lineTo(wx, oy + mh); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(wx + ww, oy); ctx.lineTo(wx + ww, oy + mh); ctx.stroke();
+    ctx.restore();
+  }
+
+  // Labels
+  if (showLabels) {
+    ctx.font = `bold 10px 'DM Mono', monospace`;
+    ctx.fillStyle = '#4A7B5F';
+    ctx.textAlign = 'center';
+
+    // Top border label
+    if (top > 0) {
+      const ty = oy + (top * scale) / 2;
+      drawArrow(ctx, ox - 10, oy, ox - 10, wy, '#7A5C3A');
+      ctx.save();
+      ctx.translate(ox - 22, ty);
+      ctx.rotate(-Math.PI/2);
+      ctx.fillStyle = '#4A7B5F';
+      ctx.font = '9px DM Mono, monospace';
+      ctx.fillText(formatVal(top, false), 0, 0);
+      ctx.restore();
+    }
+
+    // Bottom border label
+    if (bottom > 0) {
+      const by = wy + wh + (bottom * scale) / 2;
+      drawArrow(ctx, ox - 10, wy + wh, ox - 10, oy + mh, '#7A5C3A');
+      ctx.save();
+      ctx.translate(ox - 22, by);
+      ctx.rotate(-Math.PI/2);
+      ctx.font = '9px DM Mono, monospace';
+      ctx.fillText(formatVal(bottom, false), 0, 0);
+      ctx.restore();
+    }
+
+    // Left border label
+    if (left > 0) {
+      const lx = ox + (left * scale) / 2;
+      drawArrow(ctx, ox, oy + mh + 10, wx, oy + mh + 10, '#7A5C3A');
+      ctx.font = '9px DM Mono, monospace';
+      ctx.fillText(formatVal(left, false), lx, oy + mh + 22);
+    }
+
+    // Right border label
+    if (right > 0) {
+      const rx = wx + ww + (right * scale) / 2;
+      drawArrow(ctx, wx + ww, oy + mh + 10, ox + mw, oy + mh + 10, '#7A5C3A');
+      ctx.fillText(formatVal(right, false), rx, oy + mh + 22);
+    }
+
+    // Mat dimensions
+    ctx.fillStyle = '#2C2117';
+    ctx.font = 'bold 11px DM Mono, monospace';
+    ctx.fillText(formatPair(matW, matH), W/2, oy - 18);
+
+    // Window label
+    if (ww > 50 && wh > 20) {
+      ctx.fillStyle = 'rgba(74,107,138,0.8)';
+      ctx.font = '9px DM Mono, monospace';
+      ctx.fillText(formatPair(windowW, windowH), wx + ww/2, wy + wh/2);
+    }
+  }
+}
+
+function drawArrow(ctx, x1, y1, x2, y2, color) {
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+  ctx.stroke();
+  ctx.restore();
+}
+
+// ─── UI Actions ──────────────────────────────
+function setUnit(u) {
+  // Convert existing values
+  const fields = ['artwork-w','artwork-h','mat-w-equal','mat-h-equal','mat-w-weighted','mat-h-weighted',
+    'frame-w','frame-h','border-top','border-bottom','border-left','border-right',
+    'build-top','build-bottom','build-left','build-right'];
+  fields.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const val = parseFloat(el.value);
+    if (!isNaN(val)) {
+      const inchVal = val * TO_IN[state.unit];
+      el.value = (inchVal * FROM_IN[u]).toFixed(u === 'mm' ? 0 : 4).replace(/\.?0+$/, '');
+    }
+  });
+
+  // Convert overlap custom
+  const oc = document.getElementById('overlap-custom');
+  const ocv = parseFloat(oc.value) * TO_IN[state.unit] * FROM_IN[u];
+  oc.value = ocv.toFixed(u === 'mm' ? 1 : 4).replace(/\.?0+$/, '');
+
+  state.unit = u;
+  document.querySelectorAll('.unit-btn').forEach(b => b.classList.toggle('active', b.dataset.unit === u));
+  savePrefs();
+  calculate();
+}
+
+function setMode(m) {
+  state.mode = m;
+  document.querySelectorAll('.mode-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === m));
+  document.querySelectorAll('.mode-panel').forEach(p => p.classList.toggle('active', p.id === 'mode-' + m));
+  calculate();
+}
+
+function setDisplay(d) {
+  state.displayMode = d;
+  document.querySelectorAll('.disp-btn').forEach(b => b.classList.toggle('active', b.dataset.disp === d));
+  savePrefs();
+  updateResults();
+}
+
+function applyArtworkPreset() {
+  const val = document.getElementById('artwork-preset').value;
+  if (!val) return;
+  let [w, h] = ARTWORK_PRESETS[val];
+  w = w * FROM_IN[state.unit];
+  h = h * FROM_IN[state.unit];
+  document.getElementById('artwork-w').value = +w.toFixed(4);
+  document.getElementById('artwork-h').value = +h.toFixed(4);
+  calculate();
+}
+
+function applyMatPreset(mode) {
+  const idMap = { equal: 'mat-preset-equal', weighted: 'mat-preset-weighted', fit: 'frame-preset' };
+  const wMap = { equal: 'mat-w-equal', weighted: 'mat-w-weighted', fit: 'frame-w' };
+  const hMap = { equal: 'mat-h-equal', weighted: 'mat-h-weighted', fit: 'frame-h' };
+  const val = document.getElementById(idMap[mode]).value;
+  if (!val) return;
+  let [w, h] = MAT_PRESETS[val];
+  w = w * FROM_IN[state.unit]; h = h * FROM_IN[state.unit];
+  document.getElementById(wMap[mode]).value = +w.toFixed(4);
+  document.getElementById(hMap[mode]).value = +h.toFixed(4);
+  calculate();
+}
+
+function applyOverlapPreset() {
+  const val = document.getElementById('overlap-preset').value;
+  document.getElementById('overlap-custom-group').style.display = val === 'custom' ? 'block' : 'none';
+  calculate();
+}
+
+// ─── LocalStorage ────────────────────────────
+function savePrefs() {
+  try {
+    localStorage.setItem('mbcPrefs', JSON.stringify({
+      unit: state.unit,
+      displayMode: state.displayMode,
+      rounding: document.getElementById('rounding-select').value,
+      overlap: document.getElementById('overlap-preset').value,
+      name: document.getElementById('project-name').value
+    }));
+  } catch(e) {}
+}
+
+function loadPrefs() {
+  try {
+    const p = JSON.parse(localStorage.getItem('mbcPrefs') || '{}');
+    if (p.unit) setUnit(p.unit);
+    if (p.displayMode) setDisplay(p.displayMode);
+    if (p.rounding) document.getElementById('rounding-select').value = p.rounding;
+    if (p.overlap) document.getElementById('overlap-preset').value = p.overlap;
+    if (p.name) document.getElementById('project-name').value = p.name;
+  } catch(e) {}
+}
+
+// ─── Export Functions ─────────────────────────
+function copyMeasurements() {
+  const { matW, matH, windowW, windowH, artW, artH, top, bottom, left, right, overlap } = state;
+  const text = [
+    `Mat Board Calculator`,
+    `Outside Mat: ${formatPair(matW, matH)}`,
+    `Window Opening: ${formatPair(windowW, windowH)}`,
+    `Artwork: ${formatPair(artW, artH)}`,
+    `Overlap: ${formatVal(overlap)} per side`,
+    `Top Border: ${formatVal(top)}`,
+    `Bottom Border: ${formatVal(bottom)}`,
+    `Left Border: ${formatVal(left)}`,
+    `Right Border: ${formatVal(right)}`,
+  ].join('\n');
+  navigator.clipboard.writeText(text).then(() => alert('Copied to clipboard!'));
+}
+
+function exportCSV() {
+  const { matW, matH, windowW, windowH, artW, artH, top, bottom, left, right, overlap } = state;
+  const rows = [
+    ['Field','Value','Unit'],
+    ['Artwork Width', artW.toFixed(4), state.unit],
+    ['Artwork Height', artH.toFixed(4), state.unit],
+    ['Outside Mat Width', matW.toFixed(4), state.unit],
+    ['Outside Mat Height', matH.toFixed(4), state.unit],
+    ['Window Opening Width', windowW.toFixed(4), state.unit],
+    ['Window Opening Height', windowH.toFixed(4), state.unit],
+    ['Overlap per Side', overlap.toFixed(4), state.unit],
+    ['Top Border', top.toFixed(4), state.unit],
+    ['Bottom Border', bottom.toFixed(4), state.unit],
+    ['Left Border', left.toFixed(4), state.unit],
+    ['Right Border', right.toFixed(4), state.unit],
+  ];
+  const csv = rows.map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+  downloadFile('mat-board-measurements.csv', csv, 'text/csv');
+}
+
+function exportPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ unit: 'pt', format: 'letter' });
+  const { matW, matH, windowW, windowH, artW, artH, top, bottom, left, right, overlap } = state;
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(20);
+  doc.text('Mat Board Calculator', 72, 72);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(10);
+  doc.text('Cutting Sheet — ' + new Date().toLocaleDateString(), 72, 90);
+
+  const name = document.getElementById('project-name').value;
+  if (name) doc.text('Student/Project: ' + name, 72, 108);
+
+  doc.setLineWidth(1);
+  doc.line(72, 115, 540, 115);
+
+  doc.setFontSize(12);
+  let y = 136;
+  const line = (label, val) => {
+    doc.setFont('helvetica', 'bold'); doc.text(label + ':', 72, y);
+    doc.setFont('helvetica', 'normal'); doc.text(val, 220, y);
+    y += 20;
+  };
+
+  line('Outside Mat', formatPair(matW, matH));
+  line('Window Opening', formatPair(windowW, windowH));
+  line('Artwork Size', formatPair(artW, artH));
+  line('Overlap per Side', formatVal(overlap));
+  y += 8;
+  line('Top Border', formatVal(top));
+  line('Bottom Border', formatVal(bottom));
+  line('Left Border', formatVal(left));
+  line('Right Border', formatVal(right));
+
+  y += 12;
+  doc.setFont('helvetica', 'bold'); doc.text('Cutting Steps:', 72, y); y += 18;
+  doc.setFont('helvetica', 'normal');
+  const steps = [
+    `1. Cut mat to ${formatPair(matW, matH)}`,
+    `2. Mark ${formatVal(left)} from left, ${formatVal(right)} from right`,
+    `3. Mark ${formatVal(top)} from top, ${formatVal(bottom)} from bottom`,
+    `4. Window opening: ${formatPair(windowW, windowH)}`,
+    `5. Overlap: ${formatVal(overlap)} — mat covers artwork edge`
+  ];
+  steps.forEach(s => { doc.text(s, 72, y); y += 18; });
+
+  doc.save('mat-board-cut-sheet.pdf');
+}
+
+function downloadFile(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], {type}));
+  a.download = name;
+  a.click();
+}
+
+// ─── Print Sheet ─────────────────────────────
+function updatePrintSheet() {
+  const { matW, matH, windowW, windowH, artW, artH, top, bottom, left, right, overlap } = state;
+  const name = document.getElementById('project-name').value;
+
+  document.getElementById('ps-name').textContent = name || '';
+  document.getElementById('ps-date').textContent = new Date().toLocaleDateString('en-US', {year:'numeric',month:'long',day:'numeric'});
+
+  document.getElementById('ps-measurements').innerHTML = [
+    `Outside Mat: ${formatPair(matW, matH)}`,
+    `Window Opening: ${formatPair(windowW, windowH)}`,
+    `Artwork: ${formatPair(artW, artH)}`,
+    `Overlap: ${formatVal(overlap)} per side`
+  ].map(s => `<div>${s}</div>`).join('');
+
+  document.getElementById('ps-borders').innerHTML = [
+    `Top: ${formatVal(top)}`,
+    `Bottom: ${formatVal(bottom)}`,
+    `Left: ${formatVal(left)}`,
+    `Right: ${formatVal(right)}`
+  ].map(s => `<div>${s}</div>`).join('');
+
+  const steps = [
+    `Cut mat board to outside size: ${formatPair(matW, matH)}`,
+    `Mark left edge ${formatVal(left)} from left side`,
+    `Mark right edge ${formatVal(right)} from right side`,
+    `Mark top edge ${formatVal(top)} from top`,
+    `Mark bottom edge ${formatVal(bottom)} from bottom`,
+    `Window opening will be ${formatPair(windowW, windowH)}`,
+    `Mat overlaps artwork by ${formatVal(overlap)} per side`
+  ];
+  document.getElementById('ps-steps').innerHTML = steps.map(s => `<li>${s}</li>`).join('');
+}
+
+// ─── Batch Mode ──────────────────────────────
+let batchRows = [];
+let batchId = 0;
+
+function toggleBatch() {
+  const el = document.getElementById('batch-section');
+  el.classList.toggle('visible');
+  if (el.classList.contains('visible') && batchRows.length === 0) {
+    addBatchRow(); addBatchRow(); addBatchRow();
+  }
+}
+
+function addBatchRow() {
+  const id = ++batchId;
+  batchRows.push(id);
+  const tbody = document.getElementById('batch-body');
+  const tr = document.createElement('tr');
+  tr.id = 'batch-row-' + id;
+  tr.innerHTML = `
+    <td><input type="text" placeholder="Student name" oninput="calcBatchRow(${id})"></td>
+    <td><input type="number" value="8" min="0.5" step="0.0625" style="width:58px" oninput="calcBatchRow(${id})"></td>
+    <td><input type="number" value="10" min="0.5" step="0.0625" style="width:58px" oninput="calcBatchRow(${id})"></td>
+    <td><input type="number" value="11" min="1" step="0.0625" style="width:58px" oninput="calcBatchRow(${id})"></td>
+    <td><input type="number" value="14" min="1" step="0.0625" style="width:58px" oninput="calcBatchRow(${id})"></td>
+    <td><select style="width:72px" onchange="calcBatchRow(${id})">
+      <option value="0.0625">1/16"</option>
+      <option value="0.125" selected>1/8"</option>
+      <option value="0.25">1/4"</option>
+    </select></td>
+    <td><select style="width:72px" onchange="calcBatchRow(${id})">
+      <option value="equal" selected>Equal</option>
+      <option value="weighted">Weighted</option>
+    </select></td>
+    <td class="batch-result-cell" id="bww-${id}">—</td>
+    <td class="batch-result-cell" id="bwh-${id}">—</td>
+    <td class="batch-result-cell" id="bbl-${id}">—</td>
+    <td class="batch-result-cell" id="bbr-${id}">—</td>
+    <td class="batch-result-cell" id="bbt-${id}">—</td>
+    <td class="batch-result-cell" id="bbb-${id}">—</td>
+    <td style="font-size:9.5px;color:var(--warning-amber);" id="bwarn-${id}"></td>
+    <td><button class="btn btn-ghost btn-sm" onclick="deleteBatchRow(${id})">✕</button></td>
+  `;
+  tbody.appendChild(tr);
+  calcBatchRow(id);
+}
+
+function calcBatchRow(id) {
+  const row = document.getElementById('batch-row-' + id);
+  if (!row) return;
+  const inputs = row.querySelectorAll('input[type="number"]');
+  const selects = row.querySelectorAll('select');
+  const aw = parseFloat(inputs[0].value) || 0;
+  const ah = parseFloat(inputs[1].value) || 0;
+  const mw = parseFloat(inputs[2].value) || 0;
+  const mh = parseFloat(inputs[3].value) || 0;
+  const ov = parseFloat(selects[0].value);
+  const ww = aw - 2 * ov, wh = ah - 2 * ov;
+  const l = r = (mw - ww) / 2, t = b = (mh - wh) / 2;
+  const warn = [];
+  if (aw > mw || ah > mh) warn.push('Art > Mat');
+  if (l < 0.75) warn.push('Narrow border');
+  const f = v => state.unit === 'in' ? toFraction(v) + '"' : v.toFixed(1);
+  document.getElementById('bww-'+id).textContent = f(ww);
+  document.getElementById('bwh-'+id).textContent = f(wh);
+  document.getElementById('bbl-'+id).textContent = f(l);
+  document.getElementById('bbr-'+id).textContent = f(r);
+  document.getElementById('bbt-'+id).textContent = f(t);
+  document.getElementById('bbb-'+id).textContent = f(b);
+  document.getElementById('bwarn-'+id).textContent = warn.join('; ');
+}
+
+function deleteBatchRow(id) {
+  const row = document.getElementById('batch-row-' + id);
+  if (row) row.remove();
+  batchRows = batchRows.filter(r => r !== id);
+}
+
+function exportBatchCSV() {
+  const rows = [['Name','Art W','Art H','Mat W','Mat H','Overlap','Window W','Window H','Left','Right','Top','Bottom']];
+  document.querySelectorAll('#batch-body tr').forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    const cells = tr.querySelectorAll('.batch-result-cell');
+    if (!inputs.length) return;
+    rows.push([
+      inputs[0].value,
+      inputs[1]?.value, inputs[2]?.value,
+      inputs[3]?.value, inputs[4]?.value,
+      tr.querySelectorAll('select')[0]?.value,
+      cells[0]?.textContent, cells[1]?.textContent,
+      cells[2]?.textContent, cells[3]?.textContent,
+      cells[4]?.textContent, cells[5]?.textContent
+    ]);
+  });
+  downloadFile('class-mat-list.csv', rows.map(r => r.join(',')).join('\n'), 'text/csv');
+}
+
+function importBatchCSV() {
+  const input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.csv';
+  input.onchange = e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const lines = ev.target.result.split('\n').slice(1); // skip header
+      lines.forEach(line => {
+        if (!line.trim()) return;
+        const [name, aw, ah, mw, mh] = line.split(',');
+        addBatchRow();
+        const id = batchId;
+        const row = document.getElementById('batch-row-' + id);
+        if (!row) return;
+        const inputs = row.querySelectorAll('input');
+        inputs[0].value = name?.replace(/"/g,'') || '';
+        if (inputs[1]) inputs[1].value = aw?.replace(/"/g,'') || '8';
+        if (inputs[2]) inputs[2].value = ah?.replace(/"/g,'') || '10';
+        if (inputs[3]) inputs[3].value = mw?.replace(/"/g,'') || '11';
+        if (inputs[4]) inputs[4].value = mh?.replace(/"/g,'') || '14';
+        calcBatchRow(id);
+      });
+    };
+    reader.readAsText(file);
+  };
+  input.click();
+}
+
+// ─── Responsive Canvas Resize ─────────────────
+function resizeCanvas() {
+  const container = document.getElementById('preview-canvas-container');
+  if (!container) return;
+  const canvas = document.getElementById('mat-preview');
+  const maxW = container.clientWidth - 48;
+  canvas.style.width = Math.min(540, maxW) + 'px';
+  drawPreview();
+}
+
+// ─── Init ────────────────────────────────────
+window.addEventListener('load', () => {
+  loadPrefs();
+  calculate();
+  resizeCanvas();
+
+  // Watch for window resize
+  const ro = new ResizeObserver(() => resizeCanvas());
+  const preview = document.getElementById('panel-preview');
+  if (preview) ro.observe(preview);
+});
+</script>
+
+</body>
+</html>
