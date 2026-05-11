@@ -2211,19 +2211,43 @@
     pathCanvas.addEventListener('mouseup',    () => { isDrawing = false; });
     pathCanvas.addEventListener('mouseleave', () => { isDrawing = false; });
 
+    // ── Shared naming helper ──
+    function buildBaseName() {
+        const project = (document.getElementById('meta-project').value || 'animation').trim();
+        const scene   = (document.getElementById('meta-scene').value   || '').trim();
+        const take    = (document.getElementById('meta-take').value    || '').trim();
+        let name = project;
+        if (scene) name += `_Sc${scene}`;
+        if (take)  name += `_Tk${take}`;
+        return name;
+    }
+
     // ── Project data ──
     function downloadJSON() {
-        const data = { metadata: { project: document.getElementById('meta-project').value }, frames };
+        const baseName = buildBaseName();
+        const data = {
+            metadata: {
+                project: document.getElementById('meta-project').value,
+                scene:   document.getElementById('meta-scene').value,
+                take:    document.getElementById('meta-take').value,
+            },
+            frames
+        };
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${document.getElementById('meta-project').value}.json`;
+        a.download = `${baseName}.json`;
         a.click();
     }
     function uploadJSON(e) {
         const reader = new FileReader();
         reader.onload = ev => {
             const data = JSON.parse(ev.target.result);
+            if (data.metadata) {
+                if (data.metadata.project) document.getElementById('meta-project').value = data.metadata.project;
+                if (data.metadata.scene)   document.getElementById('meta-scene').value   = data.metadata.scene;
+                if (data.metadata.take)    document.getElementById('meta-take').value    = data.metadata.take;
+            }
             frames = data.frames; selectedIndices.clear();
             renderUI(); scrubTo(frames.length - 1);
         };
@@ -2232,7 +2256,7 @@
     async function exportImages() {
         if (!frames.length) { alert('No frames to export.'); return; }
 
-        const project = document.getElementById('meta-project').value || 'animation';
+        const baseName = buildBaseName();
         const statusEl = document.getElementById('status-msg');
         statusEl.textContent = 'Preparing export…';
 
@@ -2241,10 +2265,9 @@
             try {
                 const dirHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
                 for (let i = 0; i < frames.length; i++) {
-                    const name = `${project}_${String(i+1).padStart(4,'0')}.jpg`;
+                    const name = `${baseName}_${String(i+1).padStart(4,'0')}.jpg`;
                     const fileHandle = await dirHandle.getFileHandle(name, { create: true });
                     const writable   = await fileHandle.createWritable();
-                    // Convert base64 to blob
                     const res  = await fetch(frames[i].data);
                     const blob = await res.blob();
                     await writable.write(blob);
@@ -2261,7 +2284,6 @@
 
         // ── Option 2: ZIP download (single save prompt, works everywhere) ──
         try {
-            // Load JSZip from CDN
             if (!window.JSZip) {
                 await new Promise((resolve, reject) => {
                     const s = document.createElement('script');
@@ -2271,9 +2293,9 @@
                 });
             }
             const zip = new JSZip();
-            const folder = zip.folder(project);
+            const folder = zip.folder(baseName);
             for (let i = 0; i < frames.length; i++) {
-                const name   = `${project}_${String(i+1).padStart(4,'0')}.jpg`;
+                const name   = `${baseName}_${String(i+1).padStart(4,'0')}.jpg`;
                 const base64 = frames[i].data.split(',')[1];
                 folder.file(name, base64, { base64: true });
                 statusEl.textContent = `Zipping… ${i+1}/${frames.length}`;
@@ -2281,7 +2303,7 @@
             const blob = await zip.generateAsync({ type: 'blob', compression: 'STORE' });
             const a = document.createElement('a');
             a.href = URL.createObjectURL(blob);
-            a.download = `${project}_frames.zip`;
+            a.download = `${baseName}_frames.zip`;
             a.click();
             statusEl.textContent = `Downloaded ${frames.length} frames as ZIP.`;
         } catch (e) {
@@ -2289,8 +2311,139 @@
             console.error(e);
         }
     }
-    function exportVideo() {
-        alert('Export WebM: requires MediaRecorder or server-side processing.\nRun the app via localhost to enable MediaRecorder API.');
+    async function exportVideo() {
+        if (!frames.length) { alert('No frames to export.'); return; }
+
+        const statusEl = document.getElementById('status-msg');
+        const baseName = buildBaseName();
+        const fps      = parseInt(document.getElementById('fps-slider').value) || 12;
+
+        // ── Check MediaRecorder support ──
+        const mimeTypes = [
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm',
+        ];
+        const mime = mimeTypes.find(m => MediaRecorder.isTypeSupported(m));
+        if (!mime) {
+            alert(
+                'Your browser does not support video recording (MediaRecorder API).\n\n' +
+                'Use Chrome or Edge, or use "Export Images" and stitch the frames with FFmpeg:\n' +
+                '  ffmpeg -framerate ' + fps + ' -i frame_%04d.jpg output.mp4'
+            );
+            return;
+        }
+
+        // ── Build progress overlay ──
+        let overlay = document.getElementById('export-video-overlay');
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = 'export-video-overlay';
+            Object.assign(overlay.style, {
+                position: 'fixed', inset: '0', background: 'rgba(0,0,0,0.72)',
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', zIndex: '9999', gap: '14px',
+                fontFamily: 'Inter, Segoe UI, sans-serif', color: '#e2e8f0'
+            });
+            overlay.innerHTML = `
+                <div style="font-size:15px;font-weight:700;letter-spacing:1px;">Exporting Video…</div>
+                <div id="exp-label" style="font-size:12px;color:#94a3b8;">Preparing…</div>
+                <div style="width:280px;height:6px;background:#2d3748;border-radius:3px;overflow:hidden;">
+                    <div id="exp-bar" style="height:100%;width:0%;background:#d4a017;border-radius:3px;transition:width 0.1s;"></div>
+                </div>
+                <button id="exp-cancel" style="margin-top:6px;padding:6px 18px;background:#e5484d;border:none;border-radius:6px;color:#fff;font-size:12px;cursor:pointer;">Cancel</button>
+            `;
+            document.body.appendChild(overlay);
+        }
+        overlay.style.display = 'flex';
+
+        let cancelled = false;
+        document.getElementById('exp-cancel').onclick = () => { cancelled = true; };
+
+        const setProgress = (pct, label) => {
+            document.getElementById('exp-bar').style.width   = pct + '%';
+            document.getElementById('exp-label').textContent = label;
+        };
+
+        // ── Offscreen canvas matching the frame dimensions ──
+        // Detect size from first frame
+        const sizeImg = new Image();
+        await new Promise(res => { sizeImg.onload = res; sizeImg.src = frames[0].data; });
+        const W = sizeImg.naturalWidth  || playbackCanvas.width  || 1280;
+        const H = sizeImg.naturalHeight || playbackCanvas.height || 720;
+
+        const offscreen = document.createElement('canvas');
+        offscreen.width  = W;
+        offscreen.height = H;
+        const offCtx = offscreen.getContext('2d');
+
+        // ── Set up MediaRecorder ──
+        const stream   = offscreen.captureStream(fps);
+        const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+        const chunks   = [];
+        recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
+
+        recorder.start();
+
+        // ── Expand hold counts into a flat frame list ──
+        const expandedFrames = [];
+        frames.forEach(f => {
+            const hold = Math.max(1, parseInt(f.hold) || 1);
+            for (let h = 0; h < hold; h++) expandedFrames.push(f.data);
+        });
+
+        const msPerFrame = 1000 / fps;
+        const total      = expandedFrames.length;
+
+        // Preload all images first for smooth encoding
+        setProgress(0, 'Loading frames…');
+        const imgCache = await Promise.all(expandedFrames.map((src, i) => new Promise(res => {
+            const img = new Image();
+            img.onload  = () => res(img);
+            img.onerror = () => res(null);
+            img.src = src;
+        })));
+
+        // ── Draw frames at the correct rate using setTimeout pacing ──
+        await new Promise(resolve => {
+            let i = 0;
+            function drawNext() {
+                if (cancelled || i >= total) { resolve(); return; }
+                const img = imgCache[i];
+                if (img) {
+                    offCtx.clearRect(0, 0, W, H);
+                    offCtx.drawImage(img, 0, 0, W, H);
+                }
+                setProgress(Math.round(((i + 1) / total) * 90), `Encoding frame ${i + 1} / ${total}…`);
+                i++;
+                setTimeout(drawNext, msPerFrame);
+            }
+            drawNext();
+        });
+
+        recorder.stop();
+
+        if (cancelled) {
+            overlay.style.display = 'none';
+            statusEl.textContent = 'Export cancelled.';
+            return;
+        }
+
+        setProgress(95, 'Finalising…');
+
+        await new Promise(res => { recorder.onstop = res; });
+
+        const blob = new Blob(chunks, { type: mime });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `${baseName}.webm`;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 5000);
+
+        setProgress(100, 'Done!');
+        setTimeout(() => { overlay.style.display = 'none'; }, 1200);
+        statusEl.textContent = `Video exported: ${baseName}.webm`;
     }
     function deleteLastFrame() {
         if (!frames.length) return;
