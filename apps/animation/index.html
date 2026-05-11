@@ -2451,8 +2451,21 @@
         frames.pop(); renderUI(); scrubTo(frames.length - 1);
     }
     function clearProject() {
-        if (confirm('Start a new project? This will clear all frames.')) {
-            frames=[]; currentFrameIdx=-1; selectedIndices.clear(); renderUI(); updateOnion(null);
+        if (confirm('Start a new project? This will clear all frames and tracks.')) {
+            pbStop();
+            videoTracks = [{ id: 1, name: 'V1', frames: [] }];
+            soundTracks = [{ id: 1, name: 'A1', clips:  [] }];
+            trackIdSeq  = 2;
+            frames = videoTracks[0].frames;
+            currentFrameIdx = -1;
+            playheadIdx     = 0;
+            selectedIndices.clear();
+            lastClickedIdx  = -1;
+            playCtx.clearRect(0, 0, playbackCanvas.width, playbackCanvas.height);
+            updateOnion(null);
+            renderUI();
+            updateTimecode();
+            updateInfoPanel();
         }
     }
     function updateOnion(url) {
