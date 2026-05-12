@@ -189,20 +189,6 @@
             z-index: 20;
             backdrop-filter: blur(4px);
         }
-        .https-badge {
-            position: absolute;
-            top: 12px;
-            right: 14px;
-            font-size: 10px;
-            color: var(--text3);
-            background: rgba(13,17,23,0.75);
-            border: 1px solid var(--border);
-            border-radius: 20px;
-            padding: 3px 10px;
-            z-index: 20;
-            cursor: default;
-        }
-
         #bg-layer, #webcam-canvas, #onion-skin, #playback-view {
             position: absolute;
             max-width: calc(100% - 16px);
@@ -317,6 +303,7 @@
             display: flex;
             flex-direction: column;
             padding: 6px 0 0;
+            min-height: 162px;
         }
 
         /* Top bar: transport + timecode + FPS */
@@ -1058,7 +1045,6 @@
     <div class="center-col">
         <div class="viewport-wrap" id="viewport">
             <div class="viewport-label">Camera Stage</div>
-            <div class="https-badge" id="https-badge">Use localhost or HTTPS</div>
             <img id="bg-layer" src="">
             <video id="webcam" autoplay playsinline></video>
             <canvas id="webcam-canvas"></canvas>
@@ -1249,7 +1235,6 @@
                         <select id="cam-select" onchange="switchCamera(this.value)"></select>
                     </div>
                     <button class="big-btn btn-camera" onclick="startCamera()">Start Camera</button>
-                    <button class="ctrl-btn danger" onclick="clearProject()">New Project</button>
                 </div>
             </div>
 
