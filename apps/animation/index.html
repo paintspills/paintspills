@@ -303,7 +303,7 @@
             display: flex;
             flex-direction: column;
             padding: 6px 0 0;
-            min-height: 220px;
+            min-height: 264px;
         }
 
         /* Top bar: transport + timecode + FPS */
@@ -423,7 +423,7 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: row;
-            min-height: 138px; /* ruler(22) + video-row(72) + sound-row(44) */
+            min-height: 182px; /* ruler(22) + video-row(72) + sound-row×2(88) */
         }
         .tl-track-wrap::-webkit-scrollbar { display: none; }
         .tl-track-wrap { scrollbar-width: none; }
@@ -439,7 +439,7 @@
             position: sticky;
             left: 0;
             z-index: 15;
-            min-height: 138px; /* ruler(22) + video-row(72) + sound-row(44) */
+            min-height: 182px; /* ruler(22) + video-row(72) + sound-row×2(88) */
         }
         .tl-ruler-corner {
             height: 22px;
@@ -484,6 +484,7 @@
             display: flex;
             flex-direction: column;
             min-width: 0;
+            position: relative;
         }
 
         /* Ruler canvas */
@@ -820,8 +821,6 @@
             letter-spacing: 0.3px;
         }
         .big-btn:active { transform: scale(0.98); }
-        .btn-camera { background: var(--blue); color: white; border: 2px solid var(--blue2); }
-        .btn-camera:hover { background: var(--blue2); }
         .btn-capture { background: var(--accent); color: #1a1000; border: 2px solid var(--accent2); }
         .btn-capture:hover { background: var(--accent2); }
         .btn-danger-big { background: var(--danger); color: white; border: 2px solid var(--danger2); }
@@ -1110,6 +1109,7 @@
                     <!-- placeholder labels hold height before JS renders real labels -->
                     <div class="tl-track-label video-label tl-ph" id="tl-ph-vlabel"></div>
                     <div class="tl-track-label sound-label tl-ph" id="tl-ph-slabel"></div>
+                    <div class="tl-track-label sound-label tl-ph" id="tl-ph-slabel2"></div>
                     <!-- track labels injected here by JS -->
                 </div>
 
@@ -1119,6 +1119,7 @@
                     <!-- placeholder rows hold height before JS renders real rows -->
                     <div class="tl-track-row video-row tl-ph" id="tl-ph-vrow" style="min-width:100%;"></div>
                     <div class="tl-track-row sound-row tl-ph" id="tl-ph-srow" style="min-width:100%;"></div>
+                    <div class="tl-track-row sound-row tl-ph" id="tl-ph-srow2" style="min-width:100%;"></div>
                     <!-- playhead spans all rows -->
                     <div class="tl-playhead" id="tl-playhead"></div>
                     <!-- track rows injected here by JS -->
@@ -1155,7 +1156,7 @@
         <!-- Tab bar -->
         <div class="tab-bar">
             <button class="tab-btn active" id="tab-tools-btn"    onclick="switchTab('tools')">&#x2692; Tools</button>
-            <button class="tab-btn"        id="tab-settings-btn" onclick="switchTab('settings')">&#x2699; Settings</button>
+            <button class="tab-btn"        id="tab-settings-btn" onclick="switchTab('settings')">&#x2699; Chromakey</button>
         </div>
 
         <!-- Tab: Tools (Overlays + Animation Path) -->
@@ -1210,22 +1211,11 @@
 
         </div><!-- /tab-tools -->
 
-        <!-- Tab: Settings (Chroma + Onion Skin + Camera) -->
+        <!-- Tab: Chromakey -->
         <div class="tab-pane" id="tab-settings">
 
             <div class="rp-card">
-                <div class="rp-card-title">Camera</div>
-                <div class="rp-card-body" style="display:flex; flex-direction:column; gap:8px;">
-                    <div>
-                        <label class="field-label">Active Camera</label>
-                        <select id="cam-select" onchange="switchCamera(this.value)"></select>
-                    </div>
-                    <button class="big-btn btn-camera" onclick="startCamera()">Start Camera</button>
-                </div>
-            </div>
-
-            <div class="rp-card">
-                <div class="rp-card-title">Chroma &amp; Onion Skin</div>
+                <div class="rp-card-title">Chromakey</div>
                 <div class="rp-card-body" style="display:flex; flex-direction:column; gap:8px;">
                     <div class="flex-row-sb">
                         <div class="flex-row">
@@ -1263,7 +1253,6 @@
     const playbackCanvas = document.getElementById('playback-view');
     const bgLayer        = document.getElementById('bg-layer');
     const xSheetList     = document.getElementById('x-sheet-list');
-    const camSelect      = document.getElementById('cam-select');
     const overlayCanvas  = document.getElementById('overlay-canvas');
     const pathCanvas     = document.getElementById('path-canvas');
 
@@ -1294,8 +1283,8 @@
     // videoTracks: [{ id, name, frames }]
     // soundTracks: [{ id, name, clips: [...soundClips] }]
     let videoTracks = [{ id: 1, name: 'V1', frames: [] }];
-    let soundTracks = [{ id: 1, name: 'A1', clips:  [] }];
-    let trackIdSeq  = 2;
+    let soundTracks = [{ id: 1, name: 'A1', clips: [] }, { id: 2, name: 'A2', clips: [] }];
+    let trackIdSeq  = 3;
     frames = videoTracks[0].frames; // keep existing code working
 
     // ── Sound layer state (multi-clip) ──
@@ -1340,51 +1329,26 @@
     }
 
     // ── Camera init ──
+
     async function init() {
         try {
-            // Step 1: get permission AND the initial stream in one call.
-            // We keep this stream and hand it straight to the video element —
-            // no second getUserMedia call, so the user only sees ONE prompt.
-            const initialStream = await navigator.mediaDevices.getUserMedia({ video: true });
-
-            // Step 2: now that permission is granted, enumerate with real labels/IDs.
-            const devices = await navigator.mediaDevices.enumerateDevices();
-            const vDevs   = devices.filter(d => d.kind === 'videoinput');
-            camSelect.innerHTML = '';
-            vDevs.forEach((d, i) => {
-                const opt = document.createElement('option');
-                opt.value = d.deviceId;
-                opt.text  = d.label || `Camera ${i + 1}`;
-                camSelect.appendChild(opt);
-            });
-
-            if (vDevs.length === 0) {
-                initialStream.getTracks().forEach(t => t.stop());
-                document.getElementById('status-msg').textContent = 'No cameras found.';
-                return;
-            }
-
-            // Step 3: hand the already-open stream directly to the video element.
-            // Select the dropdown entry whose deviceId matches the active track.
-            const activeDeviceId = initialStream.getVideoTracks()[0].getSettings().deviceId;
-            if (activeDeviceId) camSelect.value = activeDeviceId;
-
+            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-            currentStream  = initialStream;
-            video.srcObject = currentStream;
+            currentStream   = stream;
+            video.srcObject = stream;
             video.onloadedmetadata = () => {
                 camCanvas.width = onionCanvas.width = playbackCanvas.width  = video.videoWidth;
                 camCanvas.height= onionCanvas.height= playbackCanvas.height = video.videoHeight;
                 syncOverlayCanvases();
+                video.play().catch(e => console.warn('video.play():', e));
                 if (!chromaLoopRunning) { chromaLoopRunning = true; processChroma(); }
                 document.getElementById('status-msg').textContent =
                     `Camera: ${video.videoWidth}×${video.videoHeight}`;
             };
-
         } catch (err) {
             console.error('Camera init error:', err);
             if (err.name === 'NotAllowedError') {
-                document.getElementById('status-msg').textContent = 'Camera permission denied — allow access and try again.';
+                document.getElementById('status-msg').textContent = 'Camera permission denied — reload and allow access.';
             } else if (err.name === 'NotFoundError') {
                 document.getElementById('status-msg').textContent = 'No camera found on this device.';
             } else {
@@ -1393,37 +1357,6 @@
         }
     }
 
-    function startCamera() {
-        const sel = document.getElementById('cam-select');
-        if (sel.value) switchCamera(sel.value);
-        else init();
-    }
-
-    async function switchCamera(deviceId) {
-        if (camSelect) camSelect.value = deviceId;
-        if (currentStream) currentStream.getTracks().forEach(t => t.stop());
-        try {
-            // Guard against empty deviceId — browsers return "" before permission is granted.
-            // Passing { exact: "" } causes an OverconstrainedError, so fall back to default.
-            const videoConstraints = deviceId
-                ? { deviceId: { exact: deviceId }, width: 1920, height: 1080 }
-                : { width: 1920, height: 1080 };
-
-            currentStream = await navigator.mediaDevices.getUserMedia({ video: videoConstraints });
-            video.srcObject = currentStream;
-            video.onloadedmetadata = () => {
-                camCanvas.width = onionCanvas.width = playbackCanvas.width  = video.videoWidth;
-                camCanvas.height= onionCanvas.height= playbackCanvas.height = video.videoHeight;
-                syncOverlayCanvases();
-                if (!chromaLoopRunning) { chromaLoopRunning = true; processChroma(); }
-                document.getElementById('status-msg').textContent =
-                    `Camera: ${video.videoWidth}×${video.videoHeight}`;
-            };
-        } catch (err) {
-            console.error('switchCamera error:', err);
-            document.getElementById('status-msg').textContent = `Could not switch camera: ${err.message}`;
-        }
-    }
 
     function processChroma() {
         if (!isPlaying && liveViewOn) {
@@ -1656,7 +1589,6 @@
             lbl.innerHTML = `
                 <span class="tl-track-label-name">🔊 ${strack.name}</span>
                 <button class="tl-label-btn snd" onclick="loadSoundForTrack(${strack.id})" title="Add clip">+ clip</button>
-                ${soundTracks.length > 1 ? `<button class="tl-label-btn del" onclick="removeSoundTrack(${strack.id})" title="Remove track">✕</button>` : ''}
             `;
             labelsCol.appendChild(lbl);
 
@@ -1812,7 +1744,8 @@
         let pxLeft = 0;
         const activeIdx = isPlaying ? playheadIdx : currentFrameIdx;
         if (activeIdx >= 0 && frames.length > 0) {
-            for (let i = 0; i < activeIdx; i++) pxLeft += (parseInt(frames[i].hold) || 1) * PX_PER_HOLD;
+            // Sum all holds including active frame → right edge = after last captured frame
+            for (let i = 0; i <= activeIdx; i++) pxLeft += (parseInt(frames[i].hold) || 1) * PX_PER_HOLD;
         }
         ph.style.left = `${pxLeft}px`;
 
@@ -2421,8 +2354,8 @@
         if (confirm('Start a new project? This will clear all frames and tracks.')) {
             pbStop();
             videoTracks = [{ id: 1, name: 'V1', frames: [] }];
-            soundTracks = [{ id: 1, name: 'A1', clips:  [] }];
-            trackIdSeq  = 2;
+            soundTracks = [{ id: 1, name: 'A1', clips: [] }, { id: 2, name: 'A2', clips: [] }];
+            trackIdSeq  = 3;
             frames = videoTracks[0].frames;
             currentFrameIdx = -1;
             playheadIdx     = 0;
@@ -2512,7 +2445,6 @@
     }
 
     // ── Track management ──
-    let _pendingSoundTrackId = null; // which sound track is waiting for a file
 
     function addVideoTrack() {
         videoTracks.push({ id: trackIdSeq++, name: `V${videoTracks.length + 1}`, frames: [] });
@@ -2535,18 +2467,20 @@
         renderUI();
     }
     function loadSoundForTrack(trackId) {
-        _pendingSoundTrackId = trackId;
-        document.getElementById('snd-upload').click();
+        const inp = document.getElementById('snd-upload');
+        inp.dataset.trackId = trackId;   // stamp directly on the element — survives async file dialog
+        inp.click();
     }
 
     function loadSoundFile(e) {
         const file = e.target.files[0];
         if (!file) return;
+        const trackId = parseInt(e.target.dataset.trackId) || soundTracks[0].id;
         e.target.value = '';
+        e.target.dataset.trackId = '';
 
-        // Find target track — default to first sound track
-        const targetTrack = soundTracks.find(t => t.id === _pendingSoundTrackId) || soundTracks[0];
-        _pendingSoundTrackId = null;
+        // Find target track by the stamped ID
+        const targetTrack = soundTracks.find(t => t.id === trackId) || soundTracks[0];
 
         const colorDef = CLIP_COLORS[sndClipIdSeq % CLIP_COLORS.length];
         const clip = {
@@ -2919,7 +2853,7 @@
     });
 
     initRulerScrub();
-    init();
+    init();  // Prompt for camera permission and start preview on load
 </script>
 </body>
 </html>
