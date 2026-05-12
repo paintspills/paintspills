@@ -515,24 +515,6 @@
             background: #080d14;
         }
 
-        /* Add-track bar at bottom of labels col */
-        .tl-add-tracks {
-            border-top: 1px solid var(--border);
-            display: flex;
-            flex-direction: column;
-            gap: 3px;
-            padding: 4px;
-            background: var(--card);
-            flex-shrink: 0;
-        }
-        .tl-add-btn {
-            padding: 2px 4px; border-radius: 4px; font-size: 9px; font-weight: 700;
-            cursor: pointer; border: 1px solid; width: 100%; text-align: center; white-space: nowrap;
-        }
-        .tl-add-btn.vid { background: #111e30; border-color: #1e3a5a; color: var(--blue); }
-        .tl-add-btn.vid:hover { background: #1a2f4a; }
-        .tl-add-btn.snd { background: #0e2a1a; border-color: #1a3a2a; color: #34d399; }
-        .tl-add-btn.snd:hover { background: #1a3a28; }
 
         /* Each frame cell: width proportional to hold value */
         .tl-cell {
@@ -1125,16 +1107,18 @@
                 <!-- Fixed left labels column -->
                 <div class="tl-labels-col" id="tl-labels-col">
                     <div class="tl-ruler-corner"></div>
+                    <!-- placeholder labels hold height before JS renders real labels -->
+                    <div class="tl-track-label video-label tl-ph" id="tl-ph-vlabel"></div>
+                    <div class="tl-track-label sound-label tl-ph" id="tl-ph-slabel"></div>
                     <!-- track labels injected here by JS -->
-                    <div class="tl-add-tracks">
-                        <button class="tl-add-btn vid" onclick="addVideoTrack()" title="Add video track">+ VIDEO</button>
-                        <button class="tl-add-btn snd" onclick="addSoundTrack()" title="Add sound track">+ SOUND</button>
-                    </div>
                 </div>
 
                 <!-- Scrollable right area: ruler + all track rows -->
                 <div class="tl-tracks-area" id="tl-tracks-area">
                     <canvas class="tl-ruler" id="tl-ruler"></canvas>
+                    <!-- placeholder rows hold height before JS renders real rows -->
+                    <div class="tl-track-row video-row tl-ph" id="tl-ph-vrow" style="min-width:100%;"></div>
+                    <div class="tl-track-row sound-row tl-ph" id="tl-ph-srow" style="min-width:100%;"></div>
                     <!-- playhead spans all rows -->
                     <div class="tl-playhead" id="tl-playhead"></div>
                     <!-- track rows injected here by JS -->
@@ -1567,9 +1551,8 @@
         // Remove playhead temporarily
         if (playhead.parentNode) playhead.parentNode.removeChild(playhead);
 
-        // Clear labels (keep corner + add-tracks at bottom)
-        const corner    = labelsCol.querySelector('.tl-ruler-corner');
-        const addTracks = labelsCol.querySelector('.tl-add-tracks');
+        // Clear labels (keep corner; placeholders are removed on first real render)
+        const corner = labelsCol.querySelector('.tl-ruler-corner');
         labelsCol.innerHTML = '';
         labelsCol.appendChild(corner);
 
@@ -1695,9 +1678,6 @@
             row.appendChild(inner);
             tracksArea.appendChild(row);
         });
-
-        // Re-add add-tracks buttons to labels
-        labelsCol.appendChild(addTracks);
 
         // Re-attach playhead to tracks area
         tracksArea.appendChild(playhead);
