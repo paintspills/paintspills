@@ -303,7 +303,7 @@
             display: flex;
             flex-direction: column;
             padding: 6px 0 0;
-            min-height: 162px;
+            min-height: 220px;
         }
 
         /* Top bar: transport + timecode + FPS */
@@ -423,6 +423,7 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: row;
+            min-height: 138px; /* ruler(22) + video-row(72) + sound-row(44) */
         }
         .tl-track-wrap::-webkit-scrollbar { display: none; }
         .tl-track-wrap { scrollbar-width: none; }
@@ -438,6 +439,7 @@
             position: sticky;
             left: 0;
             z-index: 15;
+            min-height: 138px; /* ruler(22) + video-row(72) + sound-row(44) */
         }
         .tl-ruler-corner {
             height: 22px;
