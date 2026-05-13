@@ -1383,10 +1383,16 @@
 
     // Open a stream for a specific deviceId (or default if none given)
     async function openCamera(deviceId) {
-        const constraints = {
-            video: deviceId ? { deviceId: { exact: deviceId } } : true,
-            audio: false
+        // Request the highest resolution the camera supports.
+        // Using 'ideal' means the browser gets as close as possible without hard-failing.
+        const videoConstraints = {
+            width:     { ideal: 3840 },   // 4K — falls back to 1920, 1280, etc.
+            height:    { ideal: 2160 },
+            frameRate: { ideal: 30 },
         };
+        if (deviceId) videoConstraints.deviceId = { exact: deviceId };
+
+        const constraints = { video: videoConstraints, audio: false };
         try {
             const stream = await navigator.mediaDevices.getUserMedia(constraints);
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
@@ -1471,7 +1477,7 @@
         if (!hasLabels) {
             // No labels yet — open default first to get permission, then re-init with picker
             try {
-                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 3840 }, height: { ideal: 2160 } }, audio: false });
                 tempStream.getTracks().forEach(t => t.stop());
             } catch(e) {
                 openCamera(null);
