@@ -189,7 +189,7 @@
             z-index: 20;
             backdrop-filter: blur(4px);
         }
-        #bg-layer, #webcam-canvas, #onion-skin, #playback-view {
+        #webcam-canvas, #onion-skin, #playback-view {
             position: absolute;
             max-width: calc(100% - 16px);
             max-height: calc(100% - 16px);
@@ -1028,7 +1028,6 @@
     <div class="center-col">
         <div class="viewport-wrap" id="viewport">
             <div class="viewport-label">Camera Stage</div>
-            <img id="bg-layer" src="">
             <video id="webcam" autoplay playsinline></video>
             <canvas id="webcam-canvas"></canvas>
             <canvas id="onion-skin"></canvas>
@@ -1251,7 +1250,7 @@
     const camCanvas      = document.getElementById('webcam-canvas');
     const onionCanvas    = document.getElementById('onion-skin');
     const playbackCanvas = document.getElementById('playback-view');
-    const bgLayer        = document.getElementById('bg-layer');
+    const bgLayer        = new Image();  // kept in memory, drawn onto canvas directly
     const xSheetList     = document.getElementById('x-sheet-list');
     const overlayCanvas  = document.getElementById('overlay-canvas');
     const pathCanvas     = document.getElementById('path-canvas');
@@ -1358,9 +1357,29 @@
     }
 
 
+    // Draw image contained (letterboxed) into canvas — consistent at any resolution
+    function drawBgContain(ctx, img, w, h) {
+        if (!img.src || !img.naturalWidth) return;
+        ctx.clearRect(0, 0, w, h);
+        const scale = Math.min(w / img.naturalWidth, h / img.naturalHeight);
+        const dw = img.naturalWidth  * scale;
+        const dh = img.naturalHeight * scale;
+        const dx = (w - dw) / 2;
+        const dy = (h - dh) / 2;
+        ctx.fillStyle = '#000';
+        ctx.fillRect(0, 0, w, h);
+        ctx.drawImage(img, dx, dy, dw, dh);
+    }
+
     function processChroma() {
         if (!isPlaying && liveViewOn) {
-            camCtx.drawImage(video, 0, 0, camCanvas.width, camCanvas.height);
+            const W = camCanvas.width, H = camCanvas.height;
+            if (bgLayer.src && bgLayer.naturalWidth > 0) {
+                drawBgContain(camCtx, bgLayer, W, H);
+                camCtx.drawImage(video, 0, 0, W, H);
+            } else {
+                camCtx.drawImage(video, 0, 0, W, H);
+            }
             if (document.getElementById('chroma-toggle').checked) {
                 const imgData = camCtx.getImageData(0, 0, camCanvas.width, camCanvas.height);
                 const data = imgData.data;
@@ -1408,7 +1427,7 @@
         cap.width  = camCanvas.width  || 1280;
         cap.height = camCanvas.height || 720;
         const ctx  = cap.getContext('2d');
-        if (bgLayer.src && bgLayer.naturalWidth > 0) ctx.drawImage(bgLayer, 0, 0, cap.width, cap.height);
+        if (bgLayer.src && bgLayer.naturalWidth > 0) drawBgContain(ctx, bgLayer, cap.width, cap.height);
         ctx.drawImage(camCanvas, 0, 0);
         addFrame(cap.toDataURL('image/jpeg', 0.85));
     }
@@ -2387,7 +2406,6 @@
 
     function clearBackground() {
         bgLayer.src = '';
-        bgLayer.removeAttribute('src');
         document.getElementById('bg-name').textContent = 'None';
         document.getElementById('bg-clear-btn').style.display = 'none';
         document.getElementById('bg-upload').value = '';
