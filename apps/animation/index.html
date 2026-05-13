@@ -971,6 +971,54 @@
         ::-webkit-scrollbar { width: 5px; height: 5px; }
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+        /* ── Camera picker modal ── */
+        #cam-picker-overlay {
+            display: none;
+            position: fixed; inset: 0; z-index: 9999;
+            background: rgba(0,0,0,0.82);
+            align-items: center; justify-content: center;
+        }
+        #cam-picker-overlay.active { display: flex; }
+        #cam-picker-box {
+            background: var(--card);
+            border: 1px solid var(--border2);
+            border-radius: 12px;
+            padding: 28px 32px;
+            min-width: 320px;
+            max-width: 480px;
+            display: flex; flex-direction: column; gap: 16px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.6);
+        }
+        #cam-picker-box h2 {
+            margin: 0; font-size: 15px; font-weight: 700;
+            color: var(--text); letter-spacing: 0.5px;
+        }
+        #cam-picker-box p {
+            margin: 0; font-size: 11px; color: var(--text3);
+        }
+        .cam-picker-option {
+            display: flex; align-items: center; gap: 12px;
+            padding: 12px 14px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.15s, background 0.15s;
+            font-size: 12px; color: var(--text);
+        }
+        .cam-picker-option:hover {
+            border-color: var(--gold);
+            background: rgba(212,160,23,0.08);
+        }
+        .cam-picker-option .cam-icon {
+            font-size: 20px; flex-shrink: 0;
+        }
+        .cam-picker-option .cam-name {
+            font-weight: 600;
+        }
+        .cam-picker-option .cam-id {
+            font-size: 10px; color: var(--text3); margin-top: 2px;
+        }
     </style>
 </head>
 <body>
@@ -1228,6 +1276,10 @@
                         <input type="range" id="chroma-sim" min="0" max="200" value="80">
                     </div>
                     <div>
+                        <label class="field-label">Camera</label>
+                        <button class="ctrl-btn w-full" onclick="showCameraPicker()" style="font-size:10px; padding:6px;">&#x1F3A5; Switch Camera</button>
+                    </div>
+                    <div>
                         <label class="field-label">Background Image</label>
                         <div style="display:flex; align-items:center; gap:5px; margin-bottom:4px;">
                             <span id="bg-name" style="font-size:10px; color:var(--text3); flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">None</span>
@@ -1329,9 +1381,14 @@
 
     // ── Camera init ──
 
-    async function init() {
+    // Open a stream for a specific deviceId (or default if none given)
+    async function openCamera(deviceId) {
+        const constraints = {
+            video: deviceId ? { deviceId: { exact: deviceId } } : true,
+            audio: false
+        };
         try {
-            const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            const stream = await navigator.mediaDevices.getUserMedia(constraints);
             if (currentStream) currentStream.getTracks().forEach(t => t.stop());
             currentStream   = stream;
             video.srcObject = stream;
@@ -1344,16 +1401,91 @@
                 document.getElementById('status-msg').textContent =
                     `Camera: ${video.videoWidth}×${video.videoHeight}`;
             };
+            // Watch for device changes
+            navigator.mediaDevices.ondevicechange = () => { /* device list changed — user can switch via button */ };
         } catch (err) {
-            console.error('Camera init error:', err);
-            if (err.name === 'NotAllowedError') {
-                document.getElementById('status-msg').textContent = 'Camera permission denied — reload and allow access.';
-            } else if (err.name === 'NotFoundError') {
-                document.getElementById('status-msg').textContent = 'No camera found on this device.';
-            } else {
-                document.getElementById('status-msg').textContent = `Camera error: ${err.message}`;
-            }
+            console.error('Camera error:', err);
+            const msg = err.name === 'NotAllowedError' ? 'Camera permission denied — reload and allow access.'
+                      : err.name === 'NotFoundError'   ? 'No camera found on this device.'
+                      : `Camera error: ${err.message}`;
+            document.getElementById('status-msg').textContent = msg;
         }
+    }
+
+    // Show camera picker without resetting frames — safe to call mid-session
+    async function showCameraPicker() {
+        let devices = [];
+        try {
+            const all = await navigator.mediaDevices.enumerateDevices();
+            devices = all.filter(d => d.kind === 'videoinput');
+        } catch(e) {}
+
+        if (devices.length === 0) {
+            document.getElementById('status-msg').textContent = 'No cameras found.';
+            return;
+        }
+
+        // If only one camera, just switch to it directly
+        if (devices.length === 1) {
+            openCamera(devices[0].deviceId || null);
+            return;
+        }
+
+        const list = document.getElementById('cam-picker-list');
+        list.innerHTML = '';
+        devices.forEach((d, i) => {
+            const label = d.label || `Camera ${i + 1}`;
+            const el = document.createElement('div');
+            el.className = 'cam-picker-option';
+            el.innerHTML = `
+                <span class="cam-icon">📷</span>
+                <div>
+                    <div class="cam-name">${label}</div>
+                    <div class="cam-id">${d.deviceId ? d.deviceId.slice(0,24) + '…' : 'default'}</div>
+                </div>`;
+            el.onclick = () => {
+                document.getElementById('cam-picker-overlay').classList.remove('active');
+                openCamera(d.deviceId || null);
+            };
+            list.appendChild(el);
+        });
+        document.getElementById('cam-picker-overlay').classList.add('active');
+    }
+
+    async function init() {
+        // Step 1: enumerate without permission to see how many cameras exist
+        let devices = [];
+        try {
+            const all = await navigator.mediaDevices.enumerateDevices();
+            devices = all.filter(d => d.kind === 'videoinput');
+        } catch(e) { /* ignore */ }
+
+        // Step 2: if only one (or none detected yet), skip picker — just open default
+        if (devices.length <= 1) {
+            openCamera(null);
+            return;
+        }
+
+        // Step 3: check if labels are available (permission previously granted)
+        const hasLabels = devices.some(d => d.label);
+        if (!hasLabels) {
+            // No labels yet — open default first to get permission, then re-init with picker
+            try {
+                const tempStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                tempStream.getTracks().forEach(t => t.stop());
+            } catch(e) {
+                openCamera(null);
+                return;
+            }
+            // Re-enumerate now that we have permission
+            try {
+                const all = await navigator.mediaDevices.enumerateDevices();
+                devices = all.filter(d => d.kind === 'videoinput');
+            } catch(e) { /* ignore */ }
+        }
+
+        // Step 4: show picker modal (reuse showCameraPicker with already-enumerated devices)
+        showCameraPicker();
     }
 
 
@@ -2873,5 +3005,14 @@
     initRulerScrub();
     init();  // Prompt for camera permission and start preview on load
 </script>
+
+    <!-- Camera picker modal -->
+    <div id="cam-picker-overlay">
+        <div id="cam-picker-box">
+            <h2>🎥 Select Camera</h2>
+            <p>Choose which camera to use for Animation Station.</p>
+            <div id="cam-picker-list"></div>
+        </div>
+    </div>
 </body>
 </html>
