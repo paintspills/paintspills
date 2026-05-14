@@ -303,7 +303,7 @@
             display: flex;
             flex-direction: column;
             padding: 6px 0 0;
-            min-height: 264px;
+            min-height: 220px;
         }
 
         /* Top bar: transport + timecode + FPS */
@@ -423,7 +423,7 @@
             flex-shrink: 0;
             display: flex;
             flex-direction: row;
-            min-height: 182px; /* ruler(22) + video-row(72) + sound-row×2(88) */
+            min-height: 138px; /* ruler(22) + video-row(72) + sound-row(44) */
         }
         .tl-track-wrap::-webkit-scrollbar { display: none; }
         .tl-track-wrap { scrollbar-width: none; }
@@ -439,7 +439,7 @@
             position: sticky;
             left: 0;
             z-index: 15;
-            min-height: 182px; /* ruler(22) + video-row(72) + sound-row×2(88) */
+            min-height: 138px; /* ruler(22) + video-row(72) + sound-row(44) */
         }
         .tl-ruler-corner {
             height: 22px;
@@ -1156,7 +1156,6 @@
                     <!-- placeholder labels hold height before JS renders real labels -->
                     <div class="tl-track-label video-label tl-ph" id="tl-ph-vlabel"></div>
                     <div class="tl-track-label sound-label tl-ph" id="tl-ph-slabel"></div>
-                    <div class="tl-track-label sound-label tl-ph" id="tl-ph-slabel2"></div>
                     <!-- track labels injected here by JS -->
                 </div>
 
@@ -1166,7 +1165,6 @@
                     <!-- placeholder rows hold height before JS renders real rows -->
                     <div class="tl-track-row video-row tl-ph" id="tl-ph-vrow" style="min-width:100%;"></div>
                     <div class="tl-track-row sound-row tl-ph" id="tl-ph-srow" style="min-width:100%;"></div>
-                    <div class="tl-track-row sound-row tl-ph" id="tl-ph-srow2" style="min-width:100%;"></div>
                     <!-- playhead spans all rows -->
                     <div class="tl-playhead" id="tl-playhead"></div>
                     <!-- track rows injected here by JS -->
@@ -1334,8 +1332,8 @@
     // videoTracks: [{ id, name, frames }]
     // soundTracks: [{ id, name, clips: [...soundClips] }]
     let videoTracks = [{ id: 1, name: 'V1', frames: [] }];
-    let soundTracks = [{ id: 1, name: 'A1', clips: [] }, { id: 2, name: 'A2', clips: [] }];
-    let trackIdSeq  = 3;
+    let soundTracks = [{ id: 1, name: 'A1', clips: [] }];
+    let trackIdSeq  = 2;
     frames = videoTracks[0].frames; // keep existing code working
 
     // ── Sound layer state (multi-clip) ──
@@ -2511,8 +2509,8 @@
         if (confirm('Start a new project? This will clear all frames and tracks.')) {
             pbStop();
             videoTracks = [{ id: 1, name: 'V1', frames: [] }];
-            soundTracks = [{ id: 1, name: 'A1', clips: [] }, { id: 2, name: 'A2', clips: [] }];
-            trackIdSeq  = 3;
+            soundTracks = [{ id: 1, name: 'A1', clips: [] }];
+            trackIdSeq  = 2;
             frames = videoTracks[0].frames;
             currentFrameIdx = -1;
             playheadIdx     = 0;
