@@ -1347,7 +1347,7 @@
                 <div class="rp-card-body" style="display:flex; flex-direction:column; gap:8px;">
                     <div class="flex-row-sb">
                         <div class="flex-row">
-                            <input type="checkbox" id="chroma-toggle">
+                            <input type="checkbox" id="chroma-toggle" onchange="updateMaskButtonState()">
                             <label class="field-label" style="margin:0;">Chroma Key</label>
                         </div>
                         <input type="color" id="key-color" value="#00ff00" title="Key color">
@@ -1552,8 +1552,10 @@
                 camCanvas.width = onionCanvas.width = playbackCanvas.width  = video.videoWidth;
                 camCanvas.height= onionCanvas.height= playbackCanvas.height = video.videoHeight;
                 syncOverlayCanvases();
+                initMaskPixels();
                 video.play().catch(e => console.warn('video.play():', e));
                 if (!chromaLoopRunning) { chromaLoopRunning = true; processChroma(); }
+                updateMaskButtonState();
                 document.getElementById('status-msg').textContent =
                     `Camera: ${video.videoWidth}×${video.videoHeight}`;
             };
@@ -1642,6 +1644,7 @@
 
         // Step 4: show picker modal (reuse showCameraPicker with already-enumerated devices)
         showCameraPicker();
+        updateMaskButtonState();
     }
 
 
@@ -1659,44 +1662,75 @@
         ctx.drawImage(img, dx, dy, dw, dh);
     }
 
+    // Offscreen canvas for chroma keying — avoids baking bg into key pass
+    const chromaOffscreen    = document.createElement('canvas');
+    const chromaOffscreenCtx = chromaOffscreen.getContext('2d', { willReadFrequently: true });
+
     function processChroma() {
         if (!isPlaying && liveViewOn) {
             const W = camCanvas.width, H = camCanvas.height;
-            if (bgLayer.src && bgLayer.naturalWidth > 0) {
-                drawBgContain(camCtx, bgLayer, W, H);
-            } else {
-                camCtx.clearRect(0, 0, W, H);
-            }
-            if (mirrorMode) {
-                camCtx.save();
-                camCtx.translate(W, 0);
-                camCtx.scale(-1, 1);
-                camCtx.drawImage(video, 0, 0, W, H);
-                camCtx.restore();
-            } else {
-                camCtx.drawImage(video, 0, 0, W, H);
-            }
-            if (document.getElementById('chroma-toggle').checked) {
-                const imgData = camCtx.getImageData(0, 0, camCanvas.width, camCanvas.height);
-                const data = imgData.data;
-                const key  = hexToRgb(document.getElementById('key-color').value);
-                const thr  = document.getElementById('chroma-sim').value;
-                const hasMask = maskPixels && maskPixels.length === camCanvas.width * camCanvas.height;
+            const chromaOn = document.getElementById('chroma-toggle').checked;
+
+            if (chromaOn) {
+                // ── Keyed path ──
+                // Step 1: draw video onto offscreen canvas only
+                chromaOffscreen.width  = W;
+                chromaOffscreen.height = H;
+                if (mirrorMode) {
+                    chromaOffscreenCtx.save();
+                    chromaOffscreenCtx.translate(W, 0);
+                    chromaOffscreenCtx.scale(-1, 1);
+                    chromaOffscreenCtx.drawImage(video, 0, 0, W, H);
+                    chromaOffscreenCtx.restore();
+                } else {
+                    chromaOffscreenCtx.drawImage(video, 0, 0, W, H);
+                }
+
+                // Step 2: key out pixels on the offscreen canvas
+                const imgData = chromaOffscreenCtx.getImageData(0, 0, W, H);
+                const data    = imgData.data;
+                const key     = hexToRgb(document.getElementById('key-color').value);
+                const thr     = parseFloat(document.getElementById('chroma-sim').value);
+                const hasMask = maskPixels && maskPixels.length === W * H;
                 for (let i = 0; i < data.length; i += 4) {
                     const pi = i >> 2;
-                    let isKey = false;
                     const dist = Math.sqrt(
                         (data[i]-key.r)**2 + (data[i+1]-key.g)**2 + (data[i+2]-key.b)**2
                     );
-                    isKey = dist < thr;
+                    let isKey = dist < thr;
                     if (hasMask) {
                         const m = maskPixels[pi];
-                        if (m === 1) isKey = true;   // force key-out
-                        if (m === 2) isKey = false;  // force keep
+                        if (m === 1) isKey = true;
+                        if (m === 2) isKey = false;
                     }
                     if (isKey) data[i+3] = 0;
                 }
-                camCtx.putImageData(imgData, 0, 0);
+                chromaOffscreenCtx.putImageData(imgData, 0, 0);
+
+                // Step 3: draw background onto camCanvas, then composite keyed video over it
+                if (bgLayer.src && bgLayer.naturalWidth > 0) {
+                    drawBgContain(camCtx, bgLayer, W, H);
+                } else {
+                    camCtx.clearRect(0, 0, W, H);
+                }
+                camCtx.drawImage(chromaOffscreen, 0, 0);
+
+            } else {
+                // ── Plain path (no chroma) ──
+                if (bgLayer.src && bgLayer.naturalWidth > 0) {
+                    drawBgContain(camCtx, bgLayer, W, H);
+                } else {
+                    camCtx.clearRect(0, 0, W, H);
+                }
+                if (mirrorMode) {
+                    camCtx.save();
+                    camCtx.translate(W, 0);
+                    camCtx.scale(-1, 1);
+                    camCtx.drawImage(video, 0, 0, W, H);
+                    camCtx.restore();
+                } else {
+                    camCtx.drawImage(video, 0, 0, W, H);
+                }
             }
         }
         requestAnimationFrame(processChroma);
@@ -1724,11 +1758,11 @@
 
     // ── Chroma Mask ──
     function initMaskPixels() {
-        const w = maskCanvas.width  || camCanvas.width  || 1280;
-        const h = maskCanvas.height || camCanvas.height || 720;
-        if (!maskPixels || maskPixels.length !== w * h) maskPixels = new Uint8Array(w * h);
+        const w = camCanvas.width  || 1280;
+        const h = camCanvas.height || 720;
         maskCanvas.width  = w;
         maskCanvas.height = h;
+        if (!maskPixels || maskPixels.length !== w * h) maskPixels = new Uint8Array(w * h);
     }
 
     function renderMaskCanvas() {
@@ -1747,6 +1781,11 @@
     }
 
     function toggleMaskMode() {
+        // Guard: mask only works when chroma is active
+        if (!document.getElementById('chroma-toggle').checked) {
+            document.getElementById('status-msg').textContent = 'Enable Chroma Key first to use Paint Mask.';
+            return;
+        }
         maskModeActive = !maskModeActive;
         const btn   = document.getElementById('btn-mask-toggle');
         const tools = document.getElementById('chroma-mask-tools');
@@ -1764,6 +1803,22 @@
             tools.classList.remove('visible');
             maskCanvas.classList.remove('active');
             maskCanvas.style.display = maskPixels && maskPixels.some(v=>v>0) ? 'block' : 'none';
+        }
+    }
+
+    function updateMaskButtonState() {
+        const chromaOn = document.getElementById('chroma-toggle').checked;
+        const btn = document.getElementById('btn-mask-toggle');
+        btn.disabled = !chromaOn;
+        btn.style.opacity = chromaOn ? '' : '0.4';
+        btn.title = chromaOn ? 'Paint areas to force key-out or protect' : 'Enable Chroma Key to use Paint Mask';
+        if (!chromaOn && maskModeActive) {
+            // Auto-deactivate mask mode if chroma turned off
+            maskModeActive = false;
+            btn.classList.remove('active');
+            btn.textContent = '🖌 Paint Mask';
+            document.getElementById('chroma-mask-tools').classList.remove('visible');
+            maskCanvas.classList.remove('active');
         }
     }
 
@@ -1804,16 +1859,16 @@
 
     function paintMaskAt(x, y, fromX, fromY) {
         const w = maskCanvas.width, h = maskCanvas.height;
-        const r = Math.max(1, maskBrushSize / 2);
-        // Draw a line of circles from last pos to current
+        const r  = Math.max(1, maskBrushSize / 2);
+        const ri = Math.ceil(r);
         const dx = x - fromX, dy = y - fromY;
-        const dist = Math.sqrt(dx*dx + dy*dy);
+        const dist  = Math.sqrt(dx*dx + dy*dy);
         const steps = Math.max(1, Math.ceil(dist / (r * 0.5)));
         for (let s = 0; s <= steps; s++) {
             const px = Math.round(fromX + dx * s / steps);
             const py = Math.round(fromY + dy * s / steps);
-            for (let oy = -r; oy <= r; oy++) {
-                for (let ox = -r; ox <= r; ox++) {
+            for (let oy = -ri; oy <= ri; oy++) {
+                for (let ox = -ri; ox <= ri; ox++) {
                     if (ox*ox + oy*oy > r*r) continue;
                     const nx = px + ox, ny = py + oy;
                     if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
@@ -1905,7 +1960,13 @@
         if (!maskPixels) return;
         const fsMask = document.getElementById('mask-fs-mask');
         if (!fsMask) return;
+        // Keep fs canvas dimensions in sync with the master mask canvas
+        if (fsMask.width !== maskCanvas.width || fsMask.height !== maskCanvas.height) {
+            fsMask.width  = maskCanvas.width;
+            fsMask.height = maskCanvas.height;
+        }
         const w = fsMask.width, h = fsMask.height;
+        if (maskPixels.length !== w * h) return; // size still mismatched — skip
         const img = fsMask.getContext('2d').createImageData(w, h);
         const d   = img.data;
         for (let i = 0; i < maskPixels.length; i++) {
