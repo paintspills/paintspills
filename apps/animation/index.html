@@ -1090,6 +1090,7 @@
                 <div class="cap-group">
                     <button class="cap-btn cap-capture" onclick="captureFrame()">&#x23FA; CAPTURE <kbd>SPACE</kbd></button>
                     <button class="cap-btn cap-live active" id="btn-live-view" onclick="toggleLiveView()">&#x23FA; LIVE</button>
+                    <button class="cap-btn cap-live" id="btn-mirror" onclick="toggleMirror()" title="Mirror live view and captures left-to-right">&#x21C6; MIRROR</button>
                     <button class="cap-btn cap-undo" onclick="deleteLastFrame()">&#x21A9; UNDO</button>
                     <button class="cap-btn cap-clear" onclick="clearProject()" title="Clear all frames">&#x1F5D1; CLEAR ALL</button>
                 </div>
@@ -1353,6 +1354,7 @@
 
     let chromaLoopRunning = false;
     let liveViewOn     = true;
+    let mirrorMode     = false;
     let pathModeActive = false;
     let isDrawing      = false;
     let pathColor      = '#ff4757';
@@ -1512,7 +1514,15 @@
             const W = camCanvas.width, H = camCanvas.height;
             if (bgLayer.src && bgLayer.naturalWidth > 0) {
                 drawBgContain(camCtx, bgLayer, W, H);
+            } else {
+                camCtx.clearRect(0, 0, W, H);
+            }
+            if (mirrorMode) {
+                camCtx.save();
+                camCtx.translate(W, 0);
+                camCtx.scale(-1, 1);
                 camCtx.drawImage(video, 0, 0, W, H);
+                camCtx.restore();
             } else {
                 camCtx.drawImage(video, 0, 0, W, H);
             }
@@ -1539,6 +1549,18 @@
             g: parseInt(hex.slice(3,5),16),
             b: parseInt(hex.slice(5,7),16)
         };
+    }
+
+    function toggleMirror() {
+        mirrorMode = !mirrorMode;
+        const btn = document.getElementById('btn-mirror');
+        if (mirrorMode) {
+            btn.classList.add('active');
+            document.getElementById('status-msg').textContent = 'Mirror: on';
+        } else {
+            btn.classList.remove('active');
+            document.getElementById('status-msg').textContent = 'Mirror: off';
+        }
     }
 
     function toggleLiveView() {
@@ -2525,7 +2547,14 @@
     }
     function updateOnion(url) {
         onionCtx.clearRect(0,0,onionCanvas.width,onionCanvas.height);
-        if (url) { const img=new Image(); img.onload=()=>onionCtx.drawImage(img,0,0); img.src=url; }
+        if (url) {
+            const img = new Image();
+            img.onload = () => {
+                onionCtx.clearRect(0,0,onionCanvas.width,onionCanvas.height);
+                onionCtx.drawImage(img, 0, 0);
+            };
+            img.src = url;
+        }
     }
 
     document.getElementById('bg-upload').onchange = e => {
