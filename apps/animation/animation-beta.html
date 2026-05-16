@@ -595,12 +595,40 @@
         .tl-playhead {
             position: absolute; top: 0; bottom: 0; width: 2px;
             background: var(--danger); z-index: 10; pointer-events: none; left: 0;
-            box-shadow: 0 0 4px var(--danger);
         }
+        /* Pin head — rectangular block sitting on the ruler */
         .tl-playhead::before {
-            content: ''; position: absolute; top: -6px; left: -5px; width: 0; height: 0;
-            border-left: 6px solid transparent; border-right: 6px solid transparent;
-            border-top: 8px solid var(--danger);
+            content: '';
+            position: absolute;
+            top: 1px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 14px;
+            height: 18px;
+            background: var(--danger);
+            border-radius: 2px 2px 0 0;
+            /* Horizontal stripe marks like the reference */
+            background-image:
+                linear-gradient(var(--danger) 0px, var(--danger) 0px),
+                repeating-linear-gradient(
+                    180deg,
+                    rgba(0,0,0,0) 0px,
+                    rgba(0,0,0,0) 3px,
+                    rgba(0,0,0,0.35) 3px,
+                    rgba(0,0,0,0.35) 4px
+                );
+        }
+        /* Downward triangle notch at bottom of head */
+        .tl-playhead::after {
+            content: '';
+            position: absolute;
+            top: 19px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left:  7px solid transparent;
+            border-right: 7px solid transparent;
+            border-top:   6px solid var(--danger);
         }
 
         /* Sound clips */
@@ -980,10 +1008,14 @@
             display: flex; align-items: center; justify-content: center; overflow: hidden;
         }
         #mask-fs-cam   { position: absolute; max-width: 100%; max-height: 100%; object-fit: contain; }
-        #mask-fs-mask  { position: absolute; max-width: 100%; max-height: 100%; object-fit: contain; cursor: crosshair; }
+        #mask-fs-mask  { position: absolute; max-width: 100%; max-height: 100%; object-fit: contain; cursor: none; }
+        #mask-fs-cursor { position: absolute; pointer-events: none; z-index: 10; max-width: 100%; max-height: 100%; object-fit: contain; }
         #mask-fs-toolbar {
             width: 100%; background: #111; border-top: 1px solid #333;
-            padding: 10px 16px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+            padding: 10px 16px; display: flex; align-items: center; justify-content: center;
+        }
+        .fs-toolbar-row {
+            display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: center;
         }
         .fs-tool-btn {
             padding: 6px 12px; border-radius: 6px; border: 1px solid #444;
@@ -1169,14 +1201,6 @@
         <!-- Capture controls — centered under the stage -->
         <div class="capture-toolbar">
             <div class="capture-toolbar-inner">
-                <div class="cap-group">
-                    <button class="cap-btn cap-capture" onclick="captureFrame()">&#x23FA; CAPTURE <kbd>SPACE</kbd></button>
-                    <button class="cap-btn cap-live active" id="btn-live-view" onclick="toggleLiveView()">&#x23FA; LIVE</button>
-                    <button class="cap-btn cap-live" id="btn-mirror" onclick="toggleMirror()" title="Mirror live view and captures left-to-right">&#x21C6; MIRROR</button>
-                    <button class="cap-btn cap-undo" onclick="deleteLastFrame()">&#x21A9; UNDO</button>
-                    <button class="cap-btn cap-clear" onclick="clearProject()" title="Clear all frames">&#x1F5D1; CLEAR ALL</button>
-                </div>
-                <div class="cap-divider"></div>
                 <div class="playback-controls">
                     <button class="pb-btn pb-edge" title="Go to Start (Home)" onclick="pbGoStart()">&#x23EE;</button>
                     <button class="pb-btn pb-step" title="Step Back" onclick="pbStepBack()">&#x23EA;</button>
@@ -1337,6 +1361,21 @@
                 </div>
             </div>
 
+            <div class="rp-card">
+                <div class="rp-card-title">Capture</div>
+                <div class="rp-card-body" style="display:flex; flex-direction:column; gap:6px;">
+                    <button class="cap-btn cap-capture w-full" onclick="captureFrame()" style="font-size:12px; padding:9px; border-radius:7px;">&#x23FA; CAPTURE &nbsp;<kbd>SPACE</kbd></button>
+                    <div style="display:flex; gap:5px;">
+                        <button class="cap-btn cap-live active" id="btn-live-view" onclick="toggleLiveView()" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x23FA; LIVE</button>
+                        <button class="cap-btn cap-live" id="btn-mirror" onclick="toggleMirror()" title="Mirror live view and captures left-to-right" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x21C6; MIRROR</button>
+                    </div>
+                    <div style="display:flex; gap:5px;">
+                        <button class="cap-btn cap-undo" onclick="deleteLastFrame()" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x21A9; UNDO</button>
+                        <button class="cap-btn cap-clear" onclick="clearProject()" title="Clear all frames" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x1F5D1; CLEAR ALL</button>
+                    </div>
+                </div>
+            </div>
+
         </div><!-- /tab-tools -->
 
         <!-- Tab: Chromakey -->
@@ -1399,19 +1438,22 @@
     <div id="mask-fs-stage">
         <canvas id="mask-fs-cam"></canvas>
         <canvas id="mask-fs-mask"></canvas>
+        <canvas id="mask-fs-cursor"></canvas>
     </div>
     <div id="mask-fs-toolbar">
-        <span class="fs-label">MASK EDITOR</span>
-        <div class="fs-sep"></div>
-        <button class="fs-tool-btn" id="fs-mtool-forcekey"  onclick="setMaskTool('forcekey')"  >&#x1F534; Remove (force key-out)</button>
-        <button class="fs-tool-btn" id="fs-mtool-forcekeep" onclick="setMaskTool('forcekeep')" >&#x1F535; Protect (force keep)</button>
-        <button class="fs-tool-btn" id="fs-mtool-erase"     onclick="setMaskTool('erase')"     >&#x26AA; Erase</button>
-        <div class="fs-sep"></div>
-        <span class="fs-label">Brush</span>
-        <input type="range" id="fs-mask-brush-size" min="2" max="120" value="12" style="width:100px; accent-color:#5dbb8c;" oninput="maskBrushSize=parseInt(this.value); document.getElementById('mask-brush-size').value=this.value;">
-        <div class="fs-sep"></div>
-        <button class="fs-tool-btn" onclick="resetMask()" style="color:#ff6b6b; border-color:#c0392b;">&#x1F5D1; Reset Mask</button>
-        <button class="fs-tool-btn" onclick="closeMaskFullscreen()" style="margin-left:auto; color:#5dbb8c; border-color:#2d6b4a;">&#x2713; Done</button>
+        <div class="fs-toolbar-row">
+            <span class="fs-label">MASK EDITOR</span>
+            <div class="fs-sep"></div>
+            <button class="fs-tool-btn" id="fs-mtool-forcekey"  onclick="setMaskTool('forcekey')"  >&#x1F534; Remove</button>
+            <button class="fs-tool-btn" id="fs-mtool-forcekeep" onclick="setMaskTool('forcekeep')" >&#x1F535; Protect</button>
+            <button class="fs-tool-btn" id="fs-mtool-erase"     onclick="setMaskTool('erase')"     >&#x26AA; Erase</button>
+            <div class="fs-sep"></div>
+            <span class="fs-label">Brush</span>
+            <input type="range" id="fs-mask-brush-size" min="2" max="120" value="12" style="width:100px; accent-color:#5dbb8c;" oninput="maskBrushSize=parseInt(this.value); document.getElementById('mask-brush-size').value=this.value; updateFsCursor();">
+            <div class="fs-sep"></div>
+            <button class="fs-tool-btn" onclick="resetMask()" style="color:#ff6b6b; border-color:#c0392b;">&#x1F5D1; Reset</button>
+            <button class="fs-tool-btn" onclick="closeMaskFullscreen()" style="color:#5dbb8c; border-color:#2d6b4a;">&#x2713; Done</button>
+        </div>
     </div>
 </div>
 
@@ -1903,35 +1945,42 @@
     function openMaskFullscreen() {
         initMaskPixels();
         maskFsOpen = true;
-        const modal  = document.getElementById('mask-fullscreen-modal');
-        const fsCam  = document.getElementById('mask-fs-cam');
-        const fsMask = document.getElementById('mask-fs-mask');
+        const modal   = document.getElementById('mask-fullscreen-modal');
+        const fsCam   = document.getElementById('mask-fs-cam');
+        const fsMask  = document.getElementById('mask-fs-mask');
+        const fsCursor= document.getElementById('mask-fs-cursor');
         modal.classList.add('open');
 
-        // Size the fs canvases to match the source
+        // Size canvases to match source
         const W = camCanvas.width, H = camCanvas.height;
         fsCam.width  = fsMask.width  = W;
         fsCam.height = fsMask.height = H;
+        fsCursor.width  = W;
+        fsCursor.height = H;
 
         // Draw current cam frame
         fsCam.getContext('2d').drawImage(camCanvas, 0, 0);
 
-        // Render mask
+        // Render mask and cursor
         renderFsMaskCanvas();
+        updateFsCursor();
 
         // Sync brush size slider
         document.getElementById('fs-mask-brush-size').value = maskBrushSize;
 
-        // Attach events to fs mask canvas
+        // Attach paint events to fs mask canvas
         fsMask.addEventListener('mousedown',  fsMaskDown);
         fsMask.addEventListener('mousemove',  fsMaskMove);
         fsMask.addEventListener('mouseup',    fsMaskUp);
-        fsMask.addEventListener('mouseleave', fsMaskUp);
+        fsMask.addEventListener('mouseleave', fsMaskLeave);
         fsMask.addEventListener('touchstart', fsMaskDown, { passive: true });
         fsMask.addEventListener('touchmove',  fsMaskMove, { passive: true });
         fsMask.addEventListener('touchend',   fsMaskUp);
 
-        // Keep cam live in background
+        // Cursor tracking on the mask canvas
+        fsMask.addEventListener('mousemove',  fsCursorMove);
+        fsMask.addEventListener('mouseleave', fsCursorHide);
+
         requestAnimationFrame(fsCamLoop);
     }
 
@@ -1943,10 +1992,47 @@
         fsMask.removeEventListener('mousedown',  fsMaskDown);
         fsMask.removeEventListener('mousemove',  fsMaskMove);
         fsMask.removeEventListener('mouseup',    fsMaskUp);
-        fsMask.removeEventListener('mouseleave', fsMaskUp);
+        fsMask.removeEventListener('mouseleave', fsMaskLeave);
         fsMask.removeEventListener('touchstart', fsMaskDown);
         fsMask.removeEventListener('touchmove',  fsMaskMove);
         fsMask.removeEventListener('touchend',   fsMaskUp);
+        fsMask.removeEventListener('mousemove',  fsCursorMove);
+        fsMask.removeEventListener('mouseleave', fsCursorHide);
+    }
+
+    // ── Brush cursor ──
+    function updateFsCursor(x, y) {
+        const fsCursor = document.getElementById('mask-fs-cursor');
+        if (!fsCursor) return;
+        const ctx = fsCursor.getContext('2d');
+        ctx.clearRect(0, 0, fsCursor.width, fsCursor.height);
+        if (x === undefined) return; // just clear
+        const r = Math.max(1, maskBrushSize / 2);
+        // Outer circle
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        // Inner dark ring for contrast
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        // Crosshair dot
+        ctx.beginPath();
+        ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.9)';
+        ctx.fill();
+    }
+
+    function fsCursorMove(e) {
+        const pos = getMaskCanvasPos(document.getElementById('mask-fs-mask'), e);
+        updateFsCursor(pos.x, pos.y);
+    }
+    function fsCursorHide() {
+        updateFsCursor(); // clear without coords
     }
 
     function fsCamLoop() {
@@ -1990,7 +2076,8 @@
         paintMaskAt(pos.x, pos.y, fsMaskLastX, fsMaskLastY);
         fsMaskLastX = pos.x; fsMaskLastY = pos.y;
     }
-    function fsMaskUp() { fsMaskIsDrawing = false; }
+    function fsMaskUp()    { fsMaskIsDrawing = false; }
+    function fsMaskLeave() { fsMaskIsDrawing = false; fsCursorHide(); }
 
     // Close fullscreen on Escape
     document.addEventListener('keydown', e => { if (e.key === 'Escape' && maskFsOpen) closeMaskFullscreen(); });
