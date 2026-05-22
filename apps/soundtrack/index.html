@@ -1,911 +1,123 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8"/>
-<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-<title>Soundtrack Builder — Paintspills</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
-<style>
-*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
-html,body,#root{height:100%;width:100%;overflow:hidden;}
-body{background:#080810;color:#ddd;font-family:'Courier New',monospace;font-size:13px;}
-input[type=text],input[type=number],select{background:#0d0d1a;border:1px solid #2a2a3a;border-radius:5px;color:#ccc;font-family:inherit;font-size:12px;padding:5px 8px;width:100%;}
-input[type=range]{width:100%;accent-color:#7c3aed;}
-input[type=checkbox]{accent-color:#7c3aed;}
-button{font-family:inherit;cursor:pointer;}
-::-webkit-scrollbar{width:6px;height:6px;}
-::-webkit-scrollbar-track{background:#0d0d1a;}
-::-webkit-scrollbar-thumb{background:#2a2a3a;border-radius:3px;}
-.btn{padding:6px 12px;background:#1e1e2e;border:1px solid #3a3a5a;border-radius:6px;color:#ccc;cursor:pointer;font-size:12px;font-family:inherit;display:inline-flex;align-items:center;gap:4px;}
-.btn:hover{background:#2a2a3e;}
-.btn-green{border-color:#059669;color:#34d399;}.btn-green:hover{background:#0a2a1e;}
-.btn-red{border-color:#7f1d1d;color:#fca5a5;}.btn-red:hover{background:#2a0a0a;}
-.btn-amber{border-color:#f59e0b;color:#fcd34d;}.btn-amber:hover{background:#2a1a00;}
-.btn-purple{border-color:#7c3aed;color:#a78bfa;}
-.mbtn{padding:3px 8px;background:#1e1e2e;border:1px solid #2a2a3a;border-radius:4px;cursor:pointer;font-size:10px;font-weight:600;color:#ccc;font-family:inherit;}
-.mbtn:hover{background:#2a2a3e;}
-.tbtn{padding:2px 5px;border:1px solid #2a2a3a;border-radius:3px;cursor:pointer;font-size:9px;font-weight:700;font-family:inherit;}
-.lrow{display:flex;flex-direction:column;gap:3px;font-size:11px;color:#888;}
-.step{width:28px;height:28px;border-radius:4px;border:1px solid #2a2a3a;cursor:pointer;font-size:8px;font-weight:700;font-family:inherit;transition:background 0.05s;}
-.step.on{border-color:currentColor;}
-.step.active{outline:2px solid #ef4444;outline-offset:1px;}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Synth Scene Builder</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-<div id="root"></div>
-<script type="text/babel">
-const {useState,useEffect,useRef}=React;
-const TRACK_DEFS=[
-  {id:"music",label:"Music",color:"#818cf8"},
-  {id:"sfx",label:"SFX",color:"#22d3ee"},
-  {id:"voice",label:"Voice",color:"#fb923c"},
-  {id:"ambience",label:"Ambience",color:"#4ade80"},
-];
-const FPS_OPTIONS=[12,24,30];
-const TRACK_HEIGHT=54;
-function genId(){return Math.random().toString(36).slice(2,9);}
-function snapToFrame(t,fps){return Math.round(t*fps)/fps;}
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">No-login soundtrack maker</p>
+        <h1>Synth Scene Builder</h1>
+        <p class="subhead">Make short 80s-style loops for animation scenes. Pick a mood, press generate, then tweak the pattern.</p>
+      </div>
+      <div class="transport-card">
+        <button id="playBtn" class="primary">▶ Play</button>
+        <button id="stopBtn" class="ghost">■ Stop</button>
+        <div class="mini-readout"><span id="statusDot"></span><span id="statusText">Ready</span></div>
+      </div>
+    </header>
 
-// ── Synthesizer ──────────────────────────────────────────────────────────────
-const S={
-  _noise(ctx){
-    const b=ctx.createBuffer(1,ctx.sampleRate*2,ctx.sampleRate);
-    const d=b.getChannelData(0);
-    for(let i=0;i<d.length;i++)d[i]=Math.random()*2-1;
-    const s=ctx.createBufferSource();s.buffer=b;s.loop=true;return s;
-  },
-  kick808(ctx,dest,w,v=1){
-    const g=ctx.createGain();g.connect(dest);
-    const o=ctx.createOscillator();o.connect(g);o.type="sine";
-    o.frequency.setValueAtTime(150,w);o.frequency.exponentialRampToValueAtTime(40,w+0.15);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.6);
-    o.start(w);o.stop(w+0.65);
-    const c=ctx.createOscillator(),cg=ctx.createGain();c.connect(cg);cg.connect(dest);
-    c.frequency.setValueAtTime(800,w);c.frequency.exponentialRampToValueAtTime(60,w+0.03);
-    cg.gain.setValueAtTime(v*0.8,w);cg.gain.exponentialRampToValueAtTime(0.001,w+0.04);
-    c.start(w);c.stop(w+0.05);
-  },
-  kick909(ctx,dest,w,v=1){
-    const g=ctx.createGain();g.connect(dest);
-    const o=ctx.createOscillator();o.connect(g);o.type="sine";
-    o.frequency.setValueAtTime(200,w);o.frequency.exponentialRampToValueAtTime(50,w+0.08);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.4);
-    o.start(w);o.stop(w+0.45);
-    const ns=S._noise(ctx),nf=ctx.createBiquadFilter(),ng=ctx.createGain();
-    nf.type="lowpass";nf.frequency.value=200;ns.connect(nf);nf.connect(ng);ng.connect(dest);
-    ng.gain.setValueAtTime(v*0.3,w);ng.gain.exponentialRampToValueAtTime(0.001,w+0.05);
-    ns.start(w);ns.stop(w+0.06);
-  },
-  snare808(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),og=ctx.createGain();o.connect(og);og.connect(dest);
-    o.type="triangle";o.frequency.value=200;
-    og.gain.setValueAtTime(v*0.5,w);og.gain.exponentialRampToValueAtTime(0.001,w+0.15);
-    o.start(w);o.stop(w+0.2);
-    const ns=S._noise(ctx),nf=ctx.createBiquadFilter(),ng=ctx.createGain();
-    nf.type="bandpass";nf.frequency.value=3000;nf.Q.value=0.8;
-    ns.connect(nf);nf.connect(ng);ng.connect(dest);
-    ng.gain.setValueAtTime(v*0.8,w);ng.gain.exponentialRampToValueAtTime(0.001,w+0.18);
-    ns.start(w);ns.stop(w+0.2);
-  },
-  snare909(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),og=ctx.createGain();o.connect(og);og.connect(dest);
-    o.type="sine";o.frequency.value=250;
-    og.gain.setValueAtTime(v*0.6,w);og.gain.exponentialRampToValueAtTime(0.001,w+0.08);
-    o.start(w);o.stop(w+0.1);
-    const ns=S._noise(ctx),nf=ctx.createBiquadFilter(),ng=ctx.createGain();
-    nf.type="highpass";nf.frequency.value=2000;ns.connect(nf);nf.connect(ng);ng.connect(dest);
-    ng.gain.setValueAtTime(v,w);ng.gain.exponentialRampToValueAtTime(0.001,w+0.12);
-    ns.start(w);ns.stop(w+0.15);
-  },
-  hihatC(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f1=ctx.createBiquadFilter(),f2=ctx.createBiquadFilter(),g=ctx.createGain();
-    f1.type="bandpass";f1.frequency.value=8000;f1.Q.value=1;
-    f2.type="highpass";f2.frequency.value=7000;
-    ns.connect(f1);f1.connect(f2);f2.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*0.6,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.05);
-    ns.start(w);ns.stop(w+0.06);
-  },
-  hihatO(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="highpass";f.frequency.value=6000;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*0.5,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.35);
-    ns.start(w);ns.stop(w+0.4);
-  },
-  clap(ctx,dest,w,v=1){
-    [0,0.01,0.02,0.03].forEach(off=>{
-      const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-      f.type="bandpass";f.frequency.value=1200;f.Q.value=0.5;
-      ns.connect(f);f.connect(g);g.connect(dest);
-      const t=w+off;
-      g.gain.setValueAtTime(v*(off===0.03?1:0.5),t);
-      g.gain.exponentialRampToValueAtTime(0.001,t+(off===0.03?0.18:0.02));
-      ns.start(t);ns.stop(t+0.2);
-    });
-  },
-  cowbell(ctx,dest,w,v=1){
-    [562,845].forEach(fr=>{
-      const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);
-      o.type="square";o.frequency.value=fr;
-      g.gain.setValueAtTime(v*0.3,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.5);
-      o.start(w);o.stop(w+0.55);
-    });
-  },
-  rimshot(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);
-    o.type="triangle";o.frequency.value=1000;
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.06);
-    o.start(w);o.stop(w+0.07);
-    const ns=S._noise(ctx),nf=ctx.createBiquadFilter(),ng=ctx.createGain();
-    nf.type="bandpass";nf.frequency.value=1500;ns.connect(nf);nf.connect(ng);ng.connect(dest);
-    ng.gain.setValueAtTime(v*0.4,w);ng.gain.exponentialRampToValueAtTime(0.001,w+0.04);
-    ns.start(w);ns.stop(w+0.05);
-  },
-  tomL(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(120,w);o.frequency.exponentialRampToValueAtTime(55,w+0.25);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.3);o.start(w);o.stop(w+0.35);
-  },
-  tomM(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(200,w);o.frequency.exponentialRampToValueAtTime(90,w+0.2);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.25);o.start(w);o.stop(w+0.3);
-  },
-  tomH(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(320,w);o.frequency.exponentialRampToValueAtTime(160,w+0.15);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.18);o.start(w);o.stop(w+0.2);
-  },
-  crash(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="highpass";f.frequency.value=5000;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*0.7,w);g.gain.exponentialRampToValueAtTime(0.001,w+1.2);
-    ns.start(w);ns.stop(w+1.3);
-  },
-  boing(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(150,w);o.frequency.exponentialRampToValueAtTime(800,w+0.12);
-    o.frequency.exponentialRampToValueAtTime(200,w+0.5);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.55);o.start(w);o.stop(w+0.6);
-  },
-  whistle(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(1200,w);o.frequency.linearRampToValueAtTime(900,w+0.3);
-    o.frequency.linearRampToValueAtTime(1100,w+0.6);
-    g.gain.setValueAtTime(v*0.5,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.65);o.start(w);o.stop(w+0.7);
-  },
-  twinkle(ctx,dest,w,v=1){
-    [0,0.08,0.16,0.24].forEach((t,i)=>{
-      const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-      o.frequency.value=[1047,1319,1568,2093][i];
-      g.gain.setValueAtTime(v*0.4,w+t);g.gain.exponentialRampToValueAtTime(0.001,w+t+0.18);
-      o.start(w+t);o.stop(w+t+0.2);
-    });
-  },
-  zap(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sawtooth";
-    o.frequency.setValueAtTime(1800,w);o.frequency.exponentialRampToValueAtTime(200,w+0.18);
-    g.gain.setValueAtTime(v*0.5,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.2);o.start(w);o.stop(w+0.22);
-  },
-  pop(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(400,w);o.frequency.exponentialRampToValueAtTime(80,w+0.06);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.08);o.start(w);o.stop(w+0.1);
-  },
-  spring(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(600,w);o.frequency.exponentialRampToValueAtTime(100,w+0.4);
-    o.frequency.exponentialRampToValueAtTime(400,w+0.7);
-    g.gain.setValueAtTime(v*0.6,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.8);o.start(w);o.stop(w+0.85);
-  },
-  whoosh(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="bandpass";f.Q.value=1.5;ns.connect(f);f.connect(g);g.connect(dest);
-    f.frequency.setValueAtTime(200,w);f.frequency.exponentialRampToValueAtTime(8000,w+0.5);
-    g.gain.setValueAtTime(0.001,w);g.gain.linearRampToValueAtTime(v*0.7,w+0.2);
-    g.gain.exponentialRampToValueAtTime(0.001,w+0.55);ns.start(w);ns.stop(w+0.6);
-  },
-  whooshRev(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="bandpass";f.Q.value=1.5;ns.connect(f);f.connect(g);g.connect(dest);
-    f.frequency.setValueAtTime(6000,w);f.frequency.exponentialRampToValueAtTime(300,w+0.5);
-    g.gain.setValueAtTime(v*0.9,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.55);
-    ns.start(w);ns.stop(w+0.6);
-  },
-  splat(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="lowpass";f.frequency.value=600;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*1.2,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.22);ns.start(w);ns.stop(w+0.25);
-    const o=ctx.createOscillator(),og=ctx.createGain();o.connect(og);og.connect(dest);o.type="sawtooth";
-    o.frequency.setValueAtTime(300,w);o.frequency.exponentialRampToValueAtTime(60,w+0.12);
-    og.gain.setValueAtTime(v*0.5,w);og.gain.exponentialRampToValueAtTime(0.001,w+0.15);o.start(w);o.stop(w+0.16);
-  },
-  squish(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="bandpass";f.frequency.value=400;f.Q.value=2;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*0.8,w);g.gain.linearRampToValueAtTime(v,w+0.05);
-    g.gain.exponentialRampToValueAtTime(0.001,w+0.18);ns.start(w);ns.stop(w+0.2);
-  },
-  punch(ctx,dest,w,v=1){
-    const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(180,w);o.frequency.exponentialRampToValueAtTime(40,w+0.1);
-    g.gain.setValueAtTime(v,w);g.gain.exponentialRampToValueAtTime(0.001,w+0.18);o.start(w);o.stop(w+0.2);
-    const ns=S._noise(ctx),nf=ctx.createBiquadFilter(),ng=ctx.createGain();
-    nf.type="lowpass";nf.frequency.value=400;ns.connect(nf);nf.connect(ng);ng.connect(dest);
-    ng.gain.setValueAtTime(v*0.6,w);ng.gain.exponentialRampToValueAtTime(0.001,w+0.08);ns.start(w);ns.stop(w+0.09);
-  },
-  boom(ctx,dest,w,v=1){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="lowpass";f.frequency.value=200;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*1.5,w);g.gain.exponentialRampToValueAtTime(0.001,w+1.0);ns.start(w);ns.stop(w+1.1);
-    const o=ctx.createOscillator(),og=ctx.createGain();o.connect(og);og.connect(dest);o.type="sine";
-    o.frequency.setValueAtTime(80,w);o.frequency.exponentialRampToValueAtTime(30,w+0.3);
-    og.gain.setValueAtTime(v,w);og.gain.exponentialRampToValueAtTime(0.001,w+0.4);o.start(w);o.stop(w+0.45);
-  },
-  upbeat(ctx,dest,w,v=1,dur=4){
-    const notes=[523,659,784,1047,784,659,523,659];
-    const step=dur/notes.length;
-    notes.forEach((fr,i)=>{
-      const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);
-      o.type="triangle";o.frequency.value=fr;const t=w+i*step;
-      g.gain.setValueAtTime(v*0.35,t);g.gain.exponentialRampToValueAtTime(0.001,t+step*0.8);
-      o.start(t);o.stop(t+step);
-    });
-  },
-  jazz(ctx,dest,w,v=1,dur=6){
-    const chords=[[261,330,392,494],[220,277,349,440],[196,247,311,392],[174,220,277,349]];
-    const step=dur/chords.length;
-    chords.forEach((ch,ci)=>{
-      ch.forEach(fr=>{
-        const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);
-        o.type="sine";o.frequency.value=fr;const t=w+ci*step;
-        g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v*0.2,t+0.05);
-        g.gain.setValueAtTime(v*0.2,t+step-0.1);g.gain.linearRampToValueAtTime(0,t+step);
-        o.start(t);o.stop(t+step+0.05);
-      });
-    });
-  },
-  tense(ctx,dest,w,v=1,dur=4){
-    const beat=60/120;
-    for(let i=0;i<dur/beat;i++){
-      const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);
-      o.type="sawtooth";o.frequency.value=i%2===0?55:58;const t=w+i*beat;
-      g.gain.setValueAtTime(v*0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+beat*0.4);
-      o.start(t);o.stop(t+beat*0.5);
-    }
-  },
-  happy(ctx,dest,w,v=1,dur=4){
-    const mel=[392,440,494,523,494,440,392,523];const step=dur/mel.length;
-    mel.forEach((fr,i)=>{
-      const o=ctx.createOscillator(),lp=ctx.createBiquadFilter(),g=ctx.createGain();
-      o.connect(lp);lp.connect(g);g.connect(dest);o.type="square";o.frequency.value=fr;
-      lp.type="lowpass";lp.frequency.value=1200;const t=w+i*step;
-      g.gain.setValueAtTime(v*0.2,t);g.gain.exponentialRampToValueAtTime(0.001,t+step*0.5);
-      o.start(t);o.stop(t+step*0.6);
-    });
-  },
-  forest(ctx,dest,w,v=1,dur=8){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="bandpass";f.frequency.value=600;f.Q.value=0.3;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(0,w);g.gain.linearRampToValueAtTime(v*0.15,w+1);
-    g.gain.setValueAtTime(v*0.15,w+dur-1);g.gain.linearRampToValueAtTime(0,w+dur);
-    ns.start(w);ns.stop(w+dur+0.1);
-    [0.5,1.2,2.8,4.1,5.5,7.0].forEach(t=>{
-      const o=ctx.createOscillator(),og=ctx.createGain();o.connect(og);og.connect(dest);o.type="sine";
-      o.frequency.setValueAtTime(2400+Math.random()*400,w+t);
-      o.frequency.linearRampToValueAtTime(2800,w+t+0.08);o.frequency.linearRampToValueAtTime(2200,w+t+0.14);
-      og.gain.setValueAtTime(v*0.25,w+t);og.gain.exponentialRampToValueAtTime(0.001,w+t+0.18);
-      o.start(w+t);o.stop(w+t+0.2);
-    });
-  },
-  city(ctx,dest,w,v=1,dur=8){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="lowpass";f.frequency.value=800;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*0.2,w);g.gain.setValueAtTime(v*0.2,w+dur);
-    g.gain.exponentialRampToValueAtTime(0.001,w+dur+0.1);ns.start(w);ns.stop(w+dur+0.2);
-  },
-  underwater(ctx,dest,w,v=1,dur=8){
-    const ns=S._noise(ctx),f=ctx.createBiquadFilter(),g=ctx.createGain();
-    f.type="lowpass";f.frequency.value=300;f.Q.value=5;ns.connect(f);f.connect(g);g.connect(dest);
-    g.gain.setValueAtTime(v*0.25,w);g.gain.setValueAtTime(v*0.25,w+dur);
-    g.gain.exponentialRampToValueAtTime(0.001,w+dur+0.1);ns.start(w);ns.stop(w+dur+0.2);
-    const o=ctx.createOscillator(),og=ctx.createGain();o.connect(og);og.connect(dest);
-    o.type="sine";o.frequency.value=60;
-    og.gain.setValueAtTime(v*0.08,w);og.gain.setValueAtTime(v*0.08,w+dur);
-    og.gain.exponentialRampToValueAtTime(0.001,w+dur+0.2);o.start(w);o.stop(w+dur+0.25);
-  },
-  spooky(ctx,dest,w,v=1,dur=8){
-    [55,82,110].forEach((fr,i)=>{
-      const o=ctx.createOscillator(),g=ctx.createGain();o.connect(g);g.connect(dest);
-      o.type="sawtooth";o.frequency.value=fr+i*0.3;
-      g.gain.setValueAtTime(v*0.06,w);g.gain.setValueAtTime(v*0.06,w+dur);
-      g.gain.exponentialRampToValueAtTime(0.001,w+dur+0.2);o.start(w);o.stop(w+dur+0.25);
-    });
-  },
-};
-
-// ── Sound Library ─────────────────────────────────────────────────────────────
-const SOUND_LIB=[
-  {id:"ml1",name:"Upbeat Arpeggio",  category:"Music loops",     duration:4.0, fn:(c,d,w,v)=>S.upbeat(c,d,w,v,4)},
-  {id:"ml2",name:"Chill Jazz",       category:"Music loops",     duration:6.0, fn:(c,d,w,v)=>S.jazz(c,d,w,v,6)},
-  {id:"ml3",name:"Tense Pulse",      category:"Music loops",     duration:4.0, fn:(c,d,w,v)=>S.tense(c,d,w,v,4)},
-  {id:"ml4",name:"Happy Staccato",   category:"Music loops",     duration:4.0, fn:(c,d,w,v)=>S.happy(c,d,w,v,4)},
-  {id:"ce1",name:"Boing!",           category:"Cartoon effects", duration:0.6, fn:(c,d,w,v)=>S.boing(c,d,w,v)},
-  {id:"ce2",name:"Whistle Slide",    category:"Cartoon effects", duration:0.7, fn:(c,d,w,v)=>S.whistle(c,d,w,v)},
-  {id:"ce3",name:"Twinkle Magic",    category:"Cartoon effects", duration:0.6, fn:(c,d,w,v)=>S.twinkle(c,d,w,v)},
-  {id:"ce4",name:"Laser Zap",        category:"Cartoon effects", duration:0.22,fn:(c,d,w,v)=>S.zap(c,d,w,v)},
-  {id:"ce5",name:"Pop",              category:"Cartoon effects", duration:0.1, fn:(c,d,w,v)=>S.pop(c,d,w,v)},
-  {id:"ce6",name:"Spring Boing",     category:"Cartoon effects", duration:0.85,fn:(c,d,w,v)=>S.spring(c,d,w,v)},
-  {id:"im1",name:"Punch",            category:"Impacts",         duration:0.2, fn:(c,d,w,v)=>S.punch(c,d,w,v)},
-  {id:"im2",name:"Big Boom",         category:"Impacts",         duration:1.1, fn:(c,d,w,v)=>S.boom(c,d,w,v)},
-  {id:"im3",name:"808 Kick",         category:"Impacts",         duration:0.65,fn:(c,d,w,v)=>S.kick808(c,d,w,v)},
-  {id:"im4",name:"909 Kick",         category:"Impacts",         duration:0.45,fn:(c,d,w,v)=>S.kick909(c,d,w,v)},
-  {id:"wh1",name:"Whoosh Up",        category:"Whooshes",        duration:0.6, fn:(c,d,w,v)=>S.whoosh(c,d,w,v)},
-  {id:"wh2",name:"Whoosh Down",      category:"Whooshes",        duration:0.6, fn:(c,d,w,v)=>S.whooshRev(c,d,w,v)},
-  {id:"ss1",name:"Splat",            category:"Splat/Squish",    duration:0.25,fn:(c,d,w,v)=>S.splat(c,d,w,v)},
-  {id:"ss2",name:"Squish",           category:"Splat/Squish",    duration:0.2, fn:(c,d,w,v)=>S.squish(c,d,w,v)},
-  {id:"am1",name:"Forest & Birds",   category:"Ambience",        duration:8.0, fn:(c,d,w,v)=>S.forest(c,d,w,v,8)},
-  {id:"am2",name:"City Noise",       category:"Ambience",        duration:8.0, fn:(c,d,w,v)=>S.city(c,d,w,v,8)},
-  {id:"am3",name:"Underwater",       category:"Ambience",        duration:8.0, fn:(c,d,w,v)=>S.underwater(c,d,w,v,8)},
-  {id:"am4",name:"Spooky Drone",     category:"Ambience",        duration:8.0, fn:(c,d,w,v)=>S.spooky(c,d,w,v,8)},
-  {id:"dr1",name:"808 Snare",        category:"Drum hits",       duration:0.2, fn:(c,d,w,v)=>S.snare808(c,d,w,v)},
-  {id:"dr2",name:"909 Snare",        category:"Drum hits",       duration:0.15,fn:(c,d,w,v)=>S.snare909(c,d,w,v)},
-  {id:"dr3",name:"Closed Hi-Hat",    category:"Drum hits",       duration:0.06,fn:(c,d,w,v)=>S.hihatC(c,d,w,v)},
-  {id:"dr4",name:"Open Hi-Hat",      category:"Drum hits",       duration:0.4, fn:(c,d,w,v)=>S.hihatO(c,d,w,v)},
-  {id:"dr5",name:"Clap",             category:"Drum hits",       duration:0.2, fn:(c,d,w,v)=>S.clap(c,d,w,v)},
-  {id:"dr6",name:"Cowbell",          category:"Drum hits",       duration:0.55,fn:(c,d,w,v)=>S.cowbell(c,d,w,v)},
-  {id:"dr7",name:"Crash Cymbal",     category:"Drum hits",       duration:1.3, fn:(c,d,w,v)=>S.crash(c,d,w,v)},
-  {id:"dr8",name:"Rimshot",          category:"Drum hits",       duration:0.07,fn:(c,d,w,v)=>S.rimshot(c,d,w,v)},
-  {id:"dr9",name:"Low Tom",          category:"Drum hits",       duration:0.35,fn:(c,d,w,v)=>S.tomL(c,d,w,v)},
-  {id:"dr10",name:"Mid Tom",         category:"Drum hits",       duration:0.3, fn:(c,d,w,v)=>S.tomM(c,d,w,v)},
-  {id:"dr11",name:"High Tom",        category:"Drum hits",       duration:0.2, fn:(c,d,w,v)=>S.tomH(c,d,w,v)},
-];
-const CATEGORIES=["All","Music loops","Cartoon effects","Impacts","Whooshes","Splat/Squish","Ambience","Drum hits"];
-
-// ── Drum rows ─────────────────────────────────────────────────────────────────
-const DRUM_ROWS=[
-  {id:"k808",label:"Kick 808", color:"#f87171",fn:(c,d,w,v)=>S.kick808(c,d,w,v)},
-  {id:"k909",label:"Kick 909", color:"#fb923c",fn:(c,d,w,v)=>S.kick909(c,d,w,v)},
-  {id:"s808",label:"Snare 808",color:"#fbbf24",fn:(c,d,w,v)=>S.snare808(c,d,w,v)},
-  {id:"s909",label:"Snare 909",color:"#a3e635",fn:(c,d,w,v)=>S.snare909(c,d,w,v)},
-  {id:"hhc", label:"HH Closed",color:"#34d399",fn:(c,d,w,v)=>S.hihatC(c,d,w,v)},
-  {id:"hho", label:"HH Open",  color:"#22d3ee",fn:(c,d,w,v)=>S.hihatO(c,d,w,v)},
-  {id:"clap",label:"Clap",     color:"#818cf8",fn:(c,d,w,v)=>S.clap(c,d,w,v)},
-  {id:"cowb",label:"Cowbell",  color:"#c084fc",fn:(c,d,w,v)=>S.cowbell(c,d,w,v)},
-  {id:"rim", label:"Rimshot",  color:"#f472b6",fn:(c,d,w,v)=>S.rimshot(c,d,w,v)},
-  {id:"tomL",label:"Tom Low",  color:"#fb923c",fn:(c,d,w,v)=>S.tomL(c,d,w,v)},
-  {id:"tomM",label:"Tom Mid",  color:"#fbbf24",fn:(c,d,w,v)=>S.tomM(c,d,w,v)},
-  {id:"tomH",label:"Tom High", color:"#a3e635",fn:(c,d,w,v)=>S.tomH(c,d,w,v)},
-  {id:"crsh",label:"Crash",    color:"#67e8f9",fn:(c,d,w,v)=>S.crash(c,d,w,v)},
-];
-
-// ── Classic programs ──────────────────────────────────────────────────────────
-const PROGRAMS={
-  "808 Basic":{bpm:90,steps:{k808:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],s808:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hhc:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],hho:[0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,1]}},
-  "909 Techno":{bpm:130,steps:{k909:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],s909:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hhc:[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],clap:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,1]}},
-  "Hip Hop":{bpm:85,steps:{k808:[1,0,0,1,0,0,1,0,0,1,0,0,1,0,0,0],s808:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hhc:[1,0,1,0,1,0,1,0,1,1,1,0,1,0,1,0],hho:[0,0,0,0,0,1,0,0,0,0,0,1,0,0,0,0]}},
-  "Jungle/DnB":{bpm:160,steps:{k808:[1,0,0,0,0,0,1,0,0,0,0,0,1,0,0,0],s808:[0,0,0,0,1,0,0,1,0,0,1,0,0,1,0,0],hhc:[1,1,0,1,1,0,1,1,0,1,1,0,1,1,0,1],crsh:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]}},
-  "Bossa Nova":{bpm:100,steps:{k808:[1,0,0,1,0,0,0,0,0,1,0,0,1,0,0,0],rim:[0,0,1,0,0,1,0,0,1,0,0,1,0,0,1,0],hhc:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],clap:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]}},
-  "Disco":{bpm:118,steps:{k808:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],s808:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hho:[1,0,0,0,1,0,0,0,1,0,0,0,1,0,0,0],hhc:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],cowb:[0,1,0,1,0,1,0,1,0,1,0,1,0,1,0,1]}},
-  "Boom Bap":{bpm:94,steps:{k808:[1,0,0,0,0,1,0,0,1,0,0,0,0,0,1,0],s808:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hhc:[1,0,1,1,0,1,0,0,1,1,0,1,0,0,1,0],clap:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]}},
-  "Reggaeton":{bpm:96,steps:{k808:[1,0,0,1,0,1,0,0,1,0,0,1,0,1,0,0],s808:[0,0,1,0,0,0,1,0,0,0,1,0,0,0,1,0],hhc:[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],clap:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0]}},
-  "Rock":{bpm:120,steps:{k808:[1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0],s808:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hhc:[1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0],crsh:[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],tomH:[0,0,0,0,0,0,0,0,0,0,0,1,0,0,0,0]}},
-  "Trap":{bpm:140,steps:{k808:[1,0,0,0,1,0,0,1,0,0,1,0,0,0,1,0],s909:[0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0],hhc:[1,1,0,1,1,0,1,1,1,0,1,1,0,1,1,0],hho:[0,0,0,0,0,0,0,1,0,0,0,0,0,0,0,0]}},
-};
-
-// ── Audio Engine ──────────────────────────────────────────────────────────────
-class AudioEngine{
-  constructor(){this.ctx=null;this.masterGain=null;this.trackGains={};this.scheduled=[];this.dmGain=null;}
-  init(){
-    if(this.ctx)return;
-    this.ctx=new(window.AudioContext||window.webkitAudioContext)();
-    this.masterGain=this.ctx.createGain();this.masterGain.connect(this.ctx.destination);
-    TRACK_DEFS.forEach(t=>{const g=this.ctx.createGain();g.connect(this.masterGain);this.trackGains[t.id]=g;});
-    this.dmGain=this.ctx.createGain();this.dmGain.gain.value=0.8;this.dmGain.connect(this.masterGain);
-  }
-  resume(){if(this.ctx&&this.ctx.state==="suspended")this.ctx.resume();}
-  setMasterVol(v){if(this.masterGain)this.masterGain.gain.value=v;}
-  playSound(sd,v=1){this.init();this.resume();sd.fn(this.ctx,this.masterGain,this.ctx.currentTime,v);}
-  playDrum(row,v=1){this.init();this.resume();row.fn(this.ctx,this.dmGain,this.ctx.currentTime,v);}
-  stopAll(){this.scheduled.forEach(n=>{try{n.stop();}catch(_){}});this.scheduled=[];}
-  scheduleTimeline(clips,ct,muted,solo){
-    this.stopAll();if(!this.ctx)return;
-    const hasSolo=TRACK_DEFS.some(t=>solo[t.id]);
-    clips.forEach(clip=>{
-      if(muted[clip.track]||(hasSolo&&!solo[clip.track]))return;
-      const offset=clip.startTime-ct;
-      if(offset+clip.duration<0)return;
-      const dest=this.trackGains[clip.track]||this.masterGain;
-      const when=this.ctx.currentTime+Math.max(0,offset);
-      const v=clip.volume??1;
-      const sd=SOUND_LIB.find(s=>s.id===clip.soundId);
-      if(sd){sd.fn(this.ctx,dest,when,v);return;}
-      const o=this.ctx.createOscillator(),g=this.ctx.createGain();
-      o.connect(g);g.connect(dest);o.frequency.value=330;
-      g.gain.setValueAtTime(v,when);g.gain.exponentialRampToValueAtTime(0.001,when+clip.duration);
-      o.start(when);o.stop(when+clip.duration+0.01);this.scheduled.push(o);
-    });
-  }
-  async exportWAV(clips,dur,masterVol,muted,solo){
-    const sr=44100;const off=new OfflineAudioContext(2,Math.ceil(dur*sr),sr);
-    const mg=off.createGain();mg.gain.value=masterVol;mg.connect(off.destination);
-    const tg={};TRACK_DEFS.forEach(t=>{const g=off.createGain();g.connect(mg);tg[t.id]=g;});
-    const hasSolo=TRACK_DEFS.some(t=>solo[t.id]);
-    clips.forEach(clip=>{
-      if(muted[clip.track]||(hasSolo&&!solo[clip.track]))return;
-      const dest=tg[clip.track]||mg;const v=clip.volume??1;
-      const sd=SOUND_LIB.find(s=>s.id===clip.soundId);
-      if(sd){sd.fn(off,dest,clip.startTime,v);return;}
-      const o=off.createOscillator(),g=off.createGain();o.connect(g);g.connect(dest);
-      o.frequency.value=330;g.gain.setValueAtTime(v,clip.startTime);
-      g.gain.exponentialRampToValueAtTime(0.001,clip.startTime+clip.duration);
-      o.start(clip.startTime);o.stop(clip.startTime+clip.duration+0.01);
-    });
-    const buf=await off.startRendering();return bufToWAV(buf);
-  }
-}
-function bufToWAV(buf){
-  const nc=buf.numberOfChannels,sr=buf.sampleRate,len=buf.length;
-  const dv=new DataView(new ArrayBuffer(44+len*nc*2));
-  const ws=(o,s)=>{for(let i=0;i<s.length;i++)dv.setUint8(o+i,s.charCodeAt(i));};
-  ws(0,"RIFF");dv.setUint32(4,36+len*nc*2,true);ws(8,"WAVE");ws(12,"fmt ");
-  dv.setUint32(16,16,true);dv.setUint16(20,1,true);dv.setUint16(22,nc,true);
-  dv.setUint32(24,sr,true);dv.setUint32(28,sr*nc*2,true);
-  dv.setUint16(32,nc*2,true);dv.setUint16(34,16,true);ws(36,"data");
-  dv.setUint32(40,len*nc*2,true);let o=44;
-  for(let i=0;i<len;i++)for(let c=0;c<nc;c++){
-    const s=Math.max(-1,Math.min(1,buf.getChannelData(c)[i]));
-    dv.setInt16(o,s<0?s*0x8000:s*0x7fff,true);o+=2;
-  }
-  return dv.buffer;
-}
-const engine=new AudioEngine();
-
-// ── Drum Machine ──────────────────────────────────────────────────────────────
-function DrumMachine({onBounce}){
-  const [prog,setProg]=useState("808 Basic");
-  const [bpm,setBpm]=useState(90);
-  const [playing,setPlaying]=useState(false);
-  const [curStep,setCurStep]=useState(-1);
-  const [steps,setSteps]=useState(()=>makeSteps("808 Basic"));
-  const [vol,setVol]=useState(0.8);
-  const ivRef=useRef(null);
-  const stepRef=useRef(0);
-
-  function makeSteps(p){
-    const pr=PROGRAMS[p]||{};
-    const out={};
-    DRUM_ROWS.forEach(r=>{out[r.id]=(pr.steps&&pr.steps[r.id])||Array(16).fill(0);});
-    return out;
-  }
-  function loadProg(p){
-    setProg(p);const pr=PROGRAMS[p];if(pr&&pr.bpm)setBpm(pr.bpm);
-    setSteps(makeSteps(p));stopDrum();
-  }
-  function toggle(rowId,idx){setSteps(p=>({...p,[rowId]:p[rowId].map((v,i)=>i===idx?1-v:v)}));}
-  function stopDrum(){clearInterval(ivRef.current);setPlaying(false);setCurStep(-1);stepRef.current=0;}
-  function startDrum(){
-    engine.init();engine.resume();stepRef.current=0;
-    const ms=(60/bpm/4)*1000;
-    ivRef.current=setInterval(()=>{
-      const s=stepRef.current;setCurStep(s);
-      DRUM_ROWS.forEach(row=>{if(steps[row.id]&&steps[row.id][s])row.fn(engine.ctx,engine.dmGain,engine.ctx.currentTime,vol);});
-      stepRef.current=(s+1)%16;
-    },ms);
-    setPlaying(true);
-  }
-  useEffect(()=>{if(playing){stopDrum();setTimeout(startDrum,10);}},[bpm]);
-  useEffect(()=>()=>clearInterval(ivRef.current),[]);
-
-  // Map drum row to sound library id for bounce
-  const rowToSoundId={k808:"im3",k909:"im4",s808:"dr1",s909:"dr2",hhc:"dr3",hho:"dr4",clap:"dr5",cowb:"dr6",crsh:"dr7",rim:"dr8",tomL:"dr9",tomM:"dr10",tomH:"dr11"};
-
-  function bounce(){
-    const sps=60/bpm/4;onBounce(steps,sps,sps*16);
-  }
-
-  return(
-    <div style={{background:"#0a0a18",border:"1px solid #1e1e3a",borderRadius:8,padding:10,marginTop:10}}>
-      <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap",marginBottom:8}}>
-        <span style={{fontSize:12,fontWeight:700,color:"#a78bfa",whiteSpace:"nowrap"}}>🥁 Drum Machine</span>
-        <select value={prog} onChange={e=>loadProg(e.target.value)} style={{flex:1,minWidth:110,fontSize:11,padding:"3px 6px"}}>
-          {Object.keys(PROGRAMS).map(p=><option key={p}>{p}</option>)}
+    <section class="panel compact-grid" aria-label="Scene setup">
+      <label>
+        Scene
+        <select id="sceneSelect">
+          <option value="transformation">Transformation Gag</option>
+          <option value="chase">Chase</option>
+          <option value="sneaky">Sneaky</option>
+          <option value="space">Space Mood</option>
+          <option value="victory">Victory</option>
+          <option value="sadrobot">Sad Robot</option>
         </select>
-        <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#666"}}>
-          BPM <input type="number" min="40" max="240" value={bpm}
-            onChange={e=>setBpm(Math.max(40,Math.min(240,parseInt(e.target.value)||90)))}
-            style={{width:50,padding:"3px 5px",fontSize:11}}/>
-        </div>
-        <div style={{display:"flex",alignItems:"center",gap:4,fontSize:11,color:"#666"}}>
-          <input type="range" min="0" max="1" step="0.01" value={vol} onChange={e=>setVol(parseFloat(e.target.value))} style={{width:50}}/>
-          <span style={{color:"#888",minWidth:26}}>{Math.round(vol*100)}%</span>
-        </div>
-        {playing
-          ?<button className="btn btn-red" style={{fontSize:11,padding:"4px 10px"}} onClick={stopDrum}>⏹ Stop</button>
-          :<button className="btn btn-green" style={{fontSize:11,padding:"4px 10px"}} onClick={startDrum}>▶ Play</button>}
-        <button className="btn" style={{fontSize:11,padding:"4px 8px"}} onClick={()=>setSteps(makeSteps(""))}>Clear</button>
-        <button className="btn btn-amber" style={{fontSize:11,padding:"4px 10px"}} onClick={bounce} title="Send one bar to the SFX track at current playhead">⬇ To Timeline</button>
-      </div>
-      <div style={{overflowX:"auto"}}>
-        <div style={{minWidth:580}}>
-          <div style={{display:"flex",marginBottom:4,marginLeft:72}}>
-            {[...Array(16)].map((_,i)=>(
-              <div key={i} style={{width:28,height:14,display:"flex",alignItems:"center",justifyContent:"center",fontSize:8,color:i%4===0?"#6b7280":"#374151",marginRight:i%4===3?5:2,flexShrink:0}}>{i+1}</div>
-            ))}
-          </div>
-          {DRUM_ROWS.map(row=>(
-            <div key={row.id} style={{display:"flex",alignItems:"center",gap:0,marginBottom:3}}>
-              <button className="mbtn" style={{width:70,textAlign:"left",color:row.color,flexShrink:0,overflow:"hidden",whiteSpace:"nowrap",marginRight:2}}
-                onClick={()=>engine.playDrum(row,vol)}>{row.label}</button>
-              {(steps[row.id]||Array(16).fill(0)).map((on,i)=>(
-                <button key={i} className={`step${on?" on":""}${curStep===i?" active":""}`}
-                  style={{flexShrink:0,background:on?row.color+"99":curStep===i?"#1a1a2a":"#111120",color:row.color,borderColor:on?row.color:"#2a2a3a",marginRight:i%4===3?5:2}}
-                  onClick={()=>toggle(row.id,i)}/>
-              ))}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Video Preview ─────────────────────────────────────────────────────────────
-function VideoPreview({videoRef,onDuration}){
-  const [has,setHas]=useState(false);
-  function handleFile(e){const f=e.target.files[0];if(!f)return;videoRef.current.src=URL.createObjectURL(f);videoRef.current.load();setHas(true);}
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:6}}>
-      <div style={{width:"100%",aspectRatio:"16/9",background:"#0a0a14",borderRadius:8,overflow:"hidden",border:"1px solid #2a2a3a",display:"flex",alignItems:"center",justifyContent:"center"}}>
-        <video ref={videoRef} style={{width:"100%",height:"100%",objectFit:"contain",display:has?"block":"none"}} onDurationChange={()=>onDuration(videoRef.current.duration||10)}/>
-        {!has&&<div style={{textAlign:"center",color:"#444"}}><div style={{fontSize:32,marginBottom:6}}>🎬</div><div style={{fontSize:12}}>Upload a video to begin</div></div>}
-      </div>
-      <label className="btn" style={{alignSelf:"flex-start",fontSize:12,cursor:"pointer"}}>
-        📂 Upload Video (MP4 / WebM)
-        <input type="file" accept="video/mp4,video/webm" style={{display:"none"}} onChange={handleFile}/>
       </label>
-    </div>
-  );
-}
-
-// ── Transport ─────────────────────────────────────────────────────────────────
-function Transport({isPlaying,onPlay,onPause,onRestart,currentTime,fps,duration}){
-  const frame=Math.round(currentTime*fps);
-  const fmt=t=>{const m=Math.floor(t/60).toString().padStart(2,"0");return`${m}:${(t%60).toFixed(2).padStart(5,"0")}`;};
-  return(
-    <div style={{display:"flex",alignItems:"center",gap:8,paddingTop:6,flexWrap:"wrap"}}>
-      <button className="btn" onClick={onRestart}>⏮</button>
-      {isPlaying?<button className="btn btn-purple" onClick={onPause}>⏸ Pause</button>:<button className="btn btn-green" onClick={onPlay}>▶ Play</button>}
-      <div style={{marginLeft:6,display:"flex",gap:12,alignItems:"center"}}>
-        <span style={{color:"#e0e0ff",fontFamily:"monospace",fontSize:14}}>{fmt(currentTime)}</span>
-        <span style={{color:"#666"}}>Frame <span style={{color:"#a78bfa",fontFamily:"monospace"}}>{frame}</span></span>
-        <span style={{color:"#444"}}>/ {fmt(duration)}</span>
-      </div>
-    </div>
-  );
-}
-
-// ── Timeline ──────────────────────────────────────────────────────────────────
-function Timeline({duration,currentTime,zoom,fps,snapEnabled,markers,clips,selectedClip,selectedMarker,onSeek,onSelectClip,onSelectMarker,onClipMove,trackMuted,trackSolo,onToggleMute,onToggleSolo}){
-  const scrollRef=useRef(null);
-  const pps=zoom,totalW=Math.max(duration*pps+300,600);
-  const toX=t=>t*pps,fromX=x=>x/pps;
-  function clickRuler(e){const r=scrollRef.current.getBoundingClientRect();onSeek(Math.max(0,Math.min(duration,fromX(e.clientX-r.left+scrollRef.current.scrollLeft))));}
-  function startDrag(e,clip){
-    e.stopPropagation();const sx=e.clientX,st=clip.startTime;
-    function mv(ev){let t=st+(ev.clientX-sx)/pps;if(snapEnabled)t=snapToFrame(t,fps);onClipMove(clip.id,Math.max(0,t));}
-    function up(){window.removeEventListener("mousemove",mv);window.removeEventListener("mouseup",up);}
-    window.addEventListener("mousemove",mv);window.addEventListener("mouseup",up);
-  }
-  const step=pps>=120?0.5:pps>=70?1:2;
-  const ticks=[];for(let t=0;t<=duration+step;t+=step)ticks.push(+(t.toFixed(2)));
-  return(
-    <div style={{display:"flex",flex:1,overflow:"hidden",background:"#0d0d1a",borderTop:"1px solid #1e1e3a"}}>
-      <div style={{width:114,flexShrink:0,background:"#0a0a18",borderRight:"1px solid #1e1e3a"}}>
-        <div style={{height:26,borderBottom:"1px solid #1e1e3a"}}/>
-        {TRACK_DEFS.map(td=>(
-          <div key={td.id} style={{height:TRACK_HEIGHT,display:"flex",flexDirection:"column",justifyContent:"center",padding:"0 8px",borderBottom:"1px solid #1e1e3a"}}>
-            <div style={{fontSize:12,fontWeight:700,color:td.color,marginBottom:4}}>{td.label}</div>
-            <div style={{display:"flex",gap:4}}>
-              <button className="tbtn" onClick={()=>onToggleMute(td.id)} style={{background:trackMuted[td.id]?"#7f1d1d":"#1e1e2e",color:trackMuted[td.id]?"#fca5a5":"#555"}}>M</button>
-              <button className="tbtn" onClick={()=>onToggleSolo(td.id)} style={{background:trackSolo[td.id]?"#713f12":"#1e1e2e",color:trackSolo[td.id]?"#fcd34d":"#555"}}>S</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div ref={scrollRef} style={{flex:1,overflowX:"auto",overflowY:"hidden",position:"relative"}}>
-        <div style={{width:totalW,position:"relative",userSelect:"none"}}>
-          <div onClick={clickRuler} style={{height:26,background:"#080812",borderBottom:"1px solid #1e1e3a",position:"relative",cursor:"crosshair"}}>
-            {ticks.map(t=>(
-              <div key={t} style={{position:"absolute",left:toX(t),top:0,height:"100%"}}>
-                <div style={{width:1,height:t%1===0?14:7,background:"#2a2a4a"}}/>
-                {t%1===0&&<span style={{position:"absolute",top:14,left:2,fontSize:9,color:"#555",whiteSpace:"nowrap"}}>{t}s</span>}
-              </div>
-            ))}
-          </div>
-          {TRACK_DEFS.map((td,ti)=>(
-            <div key={td.id} onClick={clickRuler} style={{height:TRACK_HEIGHT,position:"relative",background:ti%2===0?"#0f0f1e":"#0c0c1a",borderBottom:"1px solid #1a1a2e",cursor:"crosshair"}}>
-              {clips.filter(c=>c.track===td.id).map(clip=>{
-                const w=Math.max(6,clip.duration*pps),sel=selectedClip===clip.id;
-                return(<div key={clip.id} onMouseDown={e=>startDrag(e,clip)} onClick={e=>{e.stopPropagation();onSelectClip(clip.id);}}
-                  style={{position:"absolute",left:toX(clip.startTime),top:7,width:w,height:TRACK_HEIGHT-14,background:sel?td.color+"44":td.color+"22",border:`1.5px solid ${sel?td.color:td.color+"99"}`,borderRadius:4,cursor:"grab",overflow:"hidden",boxShadow:sel?`0 0 0 1px ${td.color}`:"none"}}>
-                  <div style={{fontSize:10,color:td.color,padding:"2px 5px",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis",fontWeight:600}}>{clip.name}</div>
-                  <div style={{fontSize:9,color:"#666",paddingLeft:5}}>{clip.duration.toFixed(1)}s</div>
-                </div>);
-              })}
-            </div>
-          ))}
-          {markers.map(m=>(
-            <div key={m.id} onClick={e=>{e.stopPropagation();onSelectMarker(m.id);}}
-              style={{position:"absolute",left:toX(m.time),top:26,bottom:0,width:1,background:selectedMarker===m.id?"#fbbf24":"#f59e0b",zIndex:5,cursor:"pointer"}}>
-              <div style={{position:"absolute",top:0,left:0,background:"#f59e0b",color:"#000",fontSize:9,fontWeight:700,padding:"1px 4px",borderRadius:"0 3px 3px 0",whiteSpace:"nowrap",maxWidth:70,overflow:"hidden",textOverflow:"ellipsis"}}>{m.label||"M"}</div>
-            </div>
-          ))}
-          <div style={{position:"absolute",left:toX(currentTime),top:0,bottom:0,width:2,background:"#ef4444",zIndex:10,pointerEvents:"none"}}>
-            <div style={{width:8,height:8,background:"#ef4444",borderRadius:"50%",marginLeft:-3,marginTop:22}}/>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ── Audio Library ─────────────────────────────────────────────────────────────
-function AudioLibrary({onAddClip,selectedMarker,markers}){
-  const [cat,setCat]=useState("All");
-  const [q,setQ]=useState("");
-  const [user,setUser]=useState([]);
-  const all=[...SOUND_LIB,...user];
-  const filtered=all.filter(s=>(cat==="All"||s.category===cat)&&s.name.toLowerCase().includes(q.toLowerCase()));
-  function add(s){
-    const t=selectedMarker?(markers.find(m=>m.id===selectedMarker)?.time??0):0;
-    const track=s.category==="Music loops"?"music":s.category==="Ambience"?"ambience":"sfx";
-    onAddClip({id:genId(),name:s.name,soundId:s.id,startTime:t,duration:s.duration,track,volume:1,fadeIn:0,fadeOut:0,markerLink:null});
-  }
-  function upload(e){const f=e.target.files[0];if(!f)return;setUser(p=>[...p,{id:genId(),name:f.name.replace(/\.[^.]+$/,""),category:"Cartoon effects",duration:2.0,fn:()=>{}}]);}
-  return(
-    <div style={{display:"flex",flexDirection:"column",height:"100%",gap:6}}>
-      <div style={{fontSize:10,fontWeight:700,color:"#555",textTransform:"uppercase",letterSpacing:1}}>Sound Library</div>
-      <input placeholder="Search..." value={q} onChange={e=>setQ(e.target.value)}/>
-      <select value={cat} onChange={e=>setCat(e.target.value)}>{CATEGORIES.map(c=><option key={c}>{c}</option>)}</select>
-      <label className="btn" style={{fontSize:11,justifyContent:"center",cursor:"pointer"}}>
-        📁 Upload Audio<input type="file" accept="audio/*" style={{display:"none"}} onChange={upload}/>
+      <label>
+        Style
+        <select id="styleSelect">
+          <option value="synthwave">Synthwave</option>
+          <option value="arcade">Arcade Game</option>
+          <option value="newwave">New Wave Pop</option>
+          <option value="scifi">Sci-Fi Classroom</option>
+        </select>
       </label>
-      {selectedMarker&&<div style={{fontSize:10,padding:"4px 6px",background:"#1a1400",border:"1px solid #f59e0b44",borderRadius:4,color:"#fcd34d"}}>◆ Adding at marker</div>}
-      <div style={{flex:1,overflowY:"auto",display:"flex",flexDirection:"column",gap:4}}>
-        {filtered.map(s=>(
-          <div key={s.id} style={{background:"#111122",border:"1px solid #1e1e3a",borderRadius:6,padding:"6px 8px"}}>
-            <div style={{fontSize:11,color:"#ddd",marginBottom:1,fontWeight:600}}>{s.name}</div>
-            <div style={{fontSize:10,color:"#555",marginBottom:5}}>{s.category} · {s.duration.toFixed(2)}s</div>
-            <div style={{display:"flex",gap:4}}>
-              <button className="mbtn" style={{color:"#60a5fa"}} onClick={()=>engine.playSound(s)}>▶</button>
-              <button className="mbtn" style={{color:"#34d399"}} onClick={()=>add(s)}>+ Add</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
+      <label>
+        Key
+        <select id="keySelect">
+          <option>C minor</option><option>D minor</option><option>E minor</option><option>F minor</option><option>G minor</option><option>A minor</option>
+          <option>C major</option><option>D major</option><option>E major</option><option>F major</option><option>G major</option><option>A major</option>
+        </select>
+      </label>
+      <label>
+        Tempo <span id="tempoValue">118</span>
+        <input id="tempoSlider" type="range" min="70" max="150" value="118" />
+      </label>
+      <label>
+        Length
+        <select id="barsSelect">
+          <option value="1">1 bar</option>
+          <option value="2" selected>2 bars</option>
+          <option value="4">4 bars</option>
+        </select>
+      </label>
+      <label>
+        Brightness <span id="brightValue">55</span>
+        <input id="brightSlider" type="range" min="0" max="100" value="55" />
+      </label>
+    </section>
 
-// ── Inspector ─────────────────────────────────────────────────────────────────
-function Inspector({selectedClip,clips,markers,selectedMarker,fps,onUpdateClip,onDeleteClip,onDuplicateClip,onUpdateMarker,onDeleteMarker,onAddClipAtMarker}){
-  const clip=clips.find(c=>c.id===selectedClip);
-  const marker=markers.find(m=>m.id===selectedMarker);
-  if(clip)return(
-    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-      <div style={{fontSize:10,fontWeight:700,color:"#555",textTransform:"uppercase",letterSpacing:1}}>Clip</div>
-      <div className="lrow">Name<input value={clip.name} onChange={e=>onUpdateClip(clip.id,{name:e.target.value})}/></div>
-      <div className="lrow">Track<select value={clip.track} onChange={e=>onUpdateClip(clip.id,{track:e.target.value})}>{TRACK_DEFS.map(t=><option key={t.id} value={t.id}>{t.label}</option>)}</select></div>
-      <div className="lrow">Start (s)<input type="number" step={+(1/fps).toFixed(4)} value={clip.startTime.toFixed(3)} onChange={e=>onUpdateClip(clip.id,{startTime:Math.max(0,parseFloat(e.target.value)||0)})}/></div>
-      <div className="lrow">Duration (s)<input type="number" step="0.1" min="0.1" value={clip.duration.toFixed(2)} onChange={e=>onUpdateClip(clip.id,{duration:Math.max(0.1,parseFloat(e.target.value)||0.1)})}/></div>
-      <div className="lrow">Volume<input type="range" min="0" max="1" step="0.01" value={clip.volume} onChange={e=>onUpdateClip(clip.id,{volume:parseFloat(e.target.value)})}/><span style={{fontSize:11,color:"#888"}}>{Math.round(clip.volume*100)}%</span></div>
-      <div className="lrow">Fade In (s)<input type="number" step="0.05" min="0" value={clip.fadeIn.toFixed(2)} onChange={e=>onUpdateClip(clip.id,{fadeIn:Math.max(0,parseFloat(e.target.value)||0)})}/></div>
-      <div className="lrow">Fade Out (s)<input type="number" step="0.05" min="0" value={clip.fadeOut.toFixed(2)} onChange={e=>onUpdateClip(clip.id,{fadeOut:Math.max(0,parseFloat(e.target.value)||0)})}/></div>
-      <div style={{display:"flex",gap:6,marginTop:4}}>
-        <button className="btn" style={{flex:1,fontSize:11,justifyContent:"center"}} onClick={()=>onDuplicateClip(clip.id)}>⧉ Dup</button>
-        <button className="btn btn-red" style={{flex:1,fontSize:11,justifyContent:"center"}} onClick={()=>onDeleteClip(clip.id)}>🗑 Del</button>
-      </div>
-    </div>
-  );
-  if(marker)return(
-    <div style={{display:"flex",flexDirection:"column",gap:8}}>
-      <div style={{fontSize:10,fontWeight:700,color:"#555",textTransform:"uppercase",letterSpacing:1}}>Marker</div>
-      <div className="lrow">Label<input value={marker.label} onChange={e=>onUpdateMarker(marker.id,{label:e.target.value})}/></div>
-      <div style={{fontSize:11,color:"#666"}}>Time: <span style={{color:"#ccc"}}>{marker.time.toFixed(3)}s</span><br/>Frame: <span style={{color:"#a78bfa"}}>{marker.frame}</span></div>
-      <button className="btn btn-amber" style={{fontSize:12,justifyContent:"center"}} onClick={()=>onAddClipAtMarker(marker)}>🔊 Add Sound at Marker</button>
-      <button className="btn btn-red" style={{fontSize:12,justifyContent:"center"}} onClick={()=>onDeleteMarker(marker.id)}>🗑 Delete</button>
-    </div>
-  );
-  return<div style={{color:"#444",fontSize:12,lineHeight:1.7}}>Select a clip or marker to edit.</div>;
-}
+    <section class="action-strip">
+      <button id="generateBtn" class="primary wide">✨ Generate Scene Loop</button>
+      <button id="randomDrumsBtn" class="ghost">Drums</button>
+      <button id="randomBassBtn" class="ghost">Bass</button>
+      <button id="randomLeadBtn" class="ghost">Lead</button>
+      <button id="clearBtn" class="ghost">Clear</button>
+    </section>
 
-// ── Marker List ───────────────────────────────────────────────────────────────
-function MarkerList({markers,selectedMarker,onSelect,onDelete}){
-  if(!markers.length)return<div style={{color:"#444",fontSize:12,paddingTop:4}}>No markers yet.<br/>Press M to add one.</div>;
-  return(
-    <div style={{display:"flex",flexDirection:"column",gap:4,overflowY:"auto"}}>
-      {markers.map(m=>(
-        <div key={m.id} onClick={()=>onSelect(m.id)} style={{display:"flex",alignItems:"center",gap:6,padding:"5px 8px",background:selectedMarker===m.id?"#1e1a00":"#111122",border:`1px solid ${selectedMarker===m.id?"#f59e0b":"#1e1e3a"}`,borderRadius:5,cursor:"pointer"}}>
-          <div style={{width:7,height:7,borderRadius:"50%",background:"#f59e0b",flexShrink:0}}/>
-          <div style={{flex:1,color:"#ccc",fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{m.label||"Marker"}</div>
-          <div style={{color:"#555",fontSize:10,whiteSpace:"nowrap"}}>{m.time.toFixed(2)}s</div>
-          <button className="mbtn" style={{color:"#f87171"}} onClick={e=>{e.stopPropagation();onDelete(m.id);}}>✕</button>
+    <section class="work-area">
+      <aside class="panel info-card">
+        <h2 id="sceneTitle">Transformation Gag</h2>
+        <p id="sceneDescription">A bouncy beat with sparkly rising notes and a comic ending sting.</p>
+        <div class="mood-buttons" aria-label="Mood modifiers">
+          <button data-mood="funny">Funny</button>
+          <button data-mood="spooky">Spooky</button>
+          <button data-mood="dramatic">Dramatic</button>
+          <button data-mood="soft">Soft</button>
         </div>
-      ))}
-    </div>
-  );
-}
+        <div class="meter-box">
+          <div><strong>Pattern:</strong> <span id="patternName">Generated classroom loop</span></div>
+          <div><strong>Tip:</strong> Click grid dots to turn notes on/off.</div>
+        </div>
+      </aside>
 
-// ── App ───────────────────────────────────────────────────────────────────────
-function App(){
-  const videoRef=useRef(null);const rafRef=useRef(null);
-  const [isPlaying,setIsPlaying]=useState(false);
-  const [currentTime,setCurrentTime]=useState(0);
-  const [duration,setDuration]=useState(10);
-  const [fps,setFps]=useState(24);
-  const [snap,setSnap]=useState(true);
-  const [zoom,setZoom]=useState(80);
-  const [title,setTitle]=useState("Untitled Project");
-  const [masterVol,setMasterVol]=useState(1);
-  const [markers,setMarkers]=useState([]);
-  const [clips,setClips]=useState([]);
-  const [selClip,setSelClip]=useState(null);
-  const [selMarker,setSelMarker]=useState(null);
-  const [muted,setMuted]=useState({});
-  const [solo,setSolo]=useState({});
-  const [tab,setTab]=useState("library");
-  const [showDrum,setShowDrum]=useState(false);
-  const [status,setStatus]=useState("");
+      <section class="panel sequencer-panel" aria-label="Pattern editor">
+        <div class="sequencer-head">
+          <h2>Loop Grid</h2>
+          <div class="step-count"><span id="currentStep">—</span> / 16</div>
+        </div>
+        <div id="sequencer" class="sequencer"></div>
+      </section>
+    </section>
 
-  useEffect(()=>{
-    if(isPlaying){const tick=()=>{if(videoRef.current)setCurrentTime(videoRef.current.currentTime);rafRef.current=requestAnimationFrame(tick);};rafRef.current=requestAnimationFrame(tick);}
-    else cancelAnimationFrame(rafRef.current);
-    return()=>cancelAnimationFrame(rafRef.current);
-  },[isPlaying]);
-  useEffect(()=>{engine.setMasterVol(masterVol);},[masterVol]);
-
-  function doPlay(){engine.init();engine.resume();engine.scheduleTimeline(clips,currentTime,muted,solo);videoRef.current?.play();setIsPlaying(true);}
-  function doPause(){videoRef.current?.pause();engine.stopAll();setIsPlaying(false);}
-  function doRestart(){doPause();if(videoRef.current)videoRef.current.currentTime=0;setCurrentTime(0);}
-  function doSeek(t){
-    const ct=Math.max(0,Math.min(duration,t));
-    if(videoRef.current)videoRef.current.currentTime=ct;setCurrentTime(ct);
-    if(isPlaying){engine.stopAll();setTimeout(()=>engine.scheduleTimeline(clips,ct,muted,solo),50);}
-  }
-
-  useEffect(()=>{
-    function onKey(e){
-      if(e.target.tagName==="INPUT"||e.target.tagName==="SELECT")return;
-      if(e.code==="Space"){e.preventDefault();isPlaying?doPause():doPlay();}
-      if(e.code==="KeyM"){e.preventDefault();addMarker();}
-      if(e.code==="Delete"||e.code==="Backspace"){if(selClip)deleteClip(selClip);else if(selMarker)deleteMarker(selMarker);}
-    }
-    window.addEventListener("keydown",onKey);return()=>window.removeEventListener("keydown",onKey);
-  },[isPlaying,currentTime,fps,selClip,selMarker]);
-
-  function addMarker(){
-    const t=snap?snapToFrame(currentTime,fps):currentTime;
-    const m={id:genId(),time:t,frame:Math.round(t*fps),label:`M${markers.length+1}`};
-    setMarkers(p=>[...p,m].sort((a,b)=>a.time-b.time));setSelMarker(m.id);setSelClip(null);
-    setStatus(`Marker at ${t.toFixed(3)}s`);
-  }
-  function addClip(clip){setClips(p=>[...p,clip]);setSelClip(clip.id);setSelMarker(null);}
-  function updateClip(id,patch){setClips(p=>p.map(c=>c.id===id?{...c,...patch}:c));}
-  function deleteClip(id){setClips(p=>p.filter(c=>c.id!==id));if(selClip===id)setSelClip(null);}
-  function dupClip(id){const c=clips.find(c=>c.id===id);if(!c)return;const n={...c,id:genId(),startTime:c.startTime+c.duration+0.1};setClips(p=>[...p,n]);setSelClip(n.id);}
-  function moveClip(id,t){setClips(p=>p.map(c=>c.id===id?{...c,startTime:Math.max(0,t)}:c));}
-  function updateMarker(id,patch){setMarkers(p=>p.map(m=>m.id===id?{...m,...patch}:m));}
-  function deleteMarker(id){setMarkers(p=>p.filter(m=>m.id!==id));if(selMarker===id)setSelMarker(null);}
-  function addClipAtMarker(marker){
-    const s=SOUND_LIB[4];
-    addClip({id:genId(),name:s.name,soundId:s.id,startTime:marker.time,duration:s.duration,track:"sfx",volume:1,fadeIn:0,fadeOut:0,markerLink:marker.id});
-  }
-  function selC(id){setSelClip(id);setSelMarker(null);}
-  function selM(id){setSelMarker(id);setSelClip(null);}
-
-  // Drum bounce: map step grid to clips
-  const rowToSoundId={k808:"im3",k909:"im4",s808:"dr1",s909:"dr2",hhc:"dr3",hho:"dr4",clap:"dr5",cowb:"dr6",crsh:"dr7",rim:"dr8",tomL:"dr9",tomM:"dr10",tomH:"dr11"};
-  function handleBounce(steps,sps,barDur){
-    DRUM_ROWS.forEach(row=>{
-      const sid=rowToSoundId[row.id];const sd=SOUND_LIB.find(s=>s.id===sid);if(!sd)return;
-      (steps[row.id]||[]).forEach((on,i)=>{
-        if(!on)return;
-        addClip({id:genId(),name:sd.name,soundId:sd.id,startTime:currentTime+i*sps,duration:sd.duration,track:"sfx",volume:0.8,fadeIn:0,fadeOut:0,markerLink:null});
-      });
-    });
-    setStatus("Drum pattern added to SFX track");
-  }
-
-  function save(){
-    const a=document.createElement("a");
-    a.href=URL.createObjectURL(new Blob([JSON.stringify({title,fps,markers,clips,muted,solo,masterVol,duration},null,2)],{type:"application/json"}));
-    a.download=`${title.replace(/\s+/g,"-")}.json`;a.click();setStatus("Saved ✓");
-  }
-  function load(){
-    const inp=document.createElement("input");inp.type="file";inp.accept=".json";
-    inp.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();
-      r.onload=ev=>{try{const p=JSON.parse(ev.target.result);setTitle(p.title||"Untitled");setFps(p.fps||24);setMarkers(p.markers||[]);setClips(p.clips||[]);setMuted(p.muted||{});setSolo(p.solo||{});setMasterVol(p.masterVol??1);setDuration(p.duration||10);setStatus("Loaded ✓");}catch(_){setStatus("Error loading");}};
-      r.readAsText(f);};inp.click();
-  }
-  async function exportWAV(){
-    setStatus("Rendering…");
-    try{engine.init();const wav=await engine.exportWAV(clips,duration,masterVol,muted,solo);const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([wav],{type:"audio/wav"}));a.download=`${title.replace(/\s+/g,"-")}_soundtrack.wav`;a.click();setStatus("WAV exported ✓");}
-    catch(err){setStatus("Export failed: "+err.message);}
-  }
-
-  return(
-    <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden"}}>
-      {/* Top bar */}
-      <div style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",background:"#0d0d1e",borderBottom:"1px solid #1e1e3a",flexShrink:0,flexWrap:"wrap"}}>
-        <a href="/" style={{textDecoration:"none"}}><span style={{fontSize:14,fontWeight:700,color:"#7c3aed",whiteSpace:"nowrap"}}>🎬 Soundtrack Builder</span></a>
-        <input value={title} onChange={e=>setTitle(e.target.value)} style={{width:160,padding:"4px 8px"}} placeholder="Project title"/>
-        <select value={fps} onChange={e=>setFps(parseInt(e.target.value))} style={{width:76}}>{FPS_OPTIONS.map(f=><option key={f} value={f}>{f} fps</option>)}</select>
-        <label style={{display:"flex",alignItems:"center",gap:4,fontSize:12,color:"#666",cursor:"pointer",whiteSpace:"nowrap"}}><input type="checkbox" checked={snap} onChange={e=>setSnap(e.target.checked)}/> Snap</label>
-        <button className={`btn${showDrum?" btn-purple":""}`} style={{fontSize:11}} onClick={()=>setShowDrum(v=>!v)}>🥁 Drums</button>
-        <div style={{flex:1}}/>
-        {status&&<span style={{fontSize:11,color:"#a78bfa",padding:"2px 8px",background:"#1a1030",borderRadius:4}}>{status}</span>}
-        <button className="btn" onClick={save}>💾 Save</button>
-        <button className="btn" onClick={load}>📂 Load</button>
-        <button className="btn btn-green" onClick={exportWAV}>📤 Export WAV</button>
+    <section class="panel bottom-panel">
+      <div class="export-group">
+        <h2>Save / Share</h2>
+        <p>Projects save on this Chromebook automatically. You can also download a project file for later.</p>
       </div>
-
-      <div style={{display:"flex",flex:1,overflow:"hidden"}}>
-        {/* Left */}
-        <div style={{width:188,flexShrink:0,background:"#0b0b1a",borderRight:"1px solid #1e1e3a",padding:10,display:"flex",flexDirection:"column",gap:8,overflowY:"auto"}}>
-          <div style={{display:"flex"}}>
-            {["library","markers"].map((t,i)=>(
-              <button key={t} onClick={()=>setTab(t)} style={{flex:1,padding:"5px 0",fontSize:11,cursor:"pointer",background:tab===t?"#1e1e3a":"transparent",border:"1px solid #1e1e3a",borderRadius:i===0?"4px 0 0 4px":"0 4px 4px 0",color:tab===t?"#a78bfa":"#555",fontWeight:600,fontFamily:"inherit"}}>
-                {t==="library"?"Library":"Markers"}
-              </button>
-            ))}
-          </div>
-          {tab==="library"
-            ?<AudioLibrary onAddClip={addClip} selectedMarker={selMarker} markers={markers}/>
-            :<><button className="btn" style={{justifyContent:"center",fontSize:12}} onClick={addMarker}>◆ Add Marker (M)</button><MarkerList markers={markers} selectedMarker={selMarker} onSelect={selM} onDelete={deleteMarker}/></>
-          }
-        </div>
-
-        {/* Center */}
-        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
-          <div style={{padding:10,borderBottom:"1px solid #1e1e3a",flexShrink:0,background:"#0a0a18",overflowY:"auto",maxHeight:"60vh"}}>
-            <VideoPreview videoRef={videoRef} onDuration={setDuration}/>
-            <Transport isPlaying={isPlaying} onPlay={doPlay} onPause={doPause} onRestart={doRestart} currentTime={currentTime} fps={fps} duration={duration}/>
-            <div style={{display:"flex",alignItems:"center",gap:14,marginTop:6,flexWrap:"wrap"}}>
-              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#555"}}>
-                Zoom:
-                <button className="mbtn" onClick={()=>setZoom(z=>Math.max(30,z-20))}>−</button>
-                <span style={{color:"#888",minWidth:44,textAlign:"center"}}>{zoom}px/s</span>
-                <button className="mbtn" onClick={()=>setZoom(z=>Math.min(400,z+20))}>+</button>
-              </div>
-              <div style={{display:"flex",alignItems:"center",gap:6,fontSize:12,color:"#555"}}>
-                Master: <input type="range" min="0" max="1" step="0.01" value={masterVol} onChange={e=>setMasterVol(parseFloat(e.target.value))} style={{width:70}}/>
-                <span style={{color:"#888",minWidth:30}}>{Math.round(masterVol*100)}%</span>
-              </div>
-              <button className="btn" style={{fontSize:11}} onClick={addMarker}>◆ Marker (M)</button>
-            </div>
-            {showDrum&&<DrumMachine onBounce={handleBounce}/>}
-          </div>
-          <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden"}}>
-            <Timeline duration={duration} currentTime={currentTime} zoom={zoom} fps={fps} snapEnabled={snap}
-              markers={markers} clips={clips} selectedClip={selClip} selectedMarker={selMarker}
-              onSeek={doSeek} onSelectClip={selC} onSelectMarker={selM} onClipMove={moveClip}
-              trackMuted={muted} trackSolo={solo} onToggleMute={id=>setMuted(p=>({...p,[id]:!p[id]}))} onToggleSolo={id=>setSolo(p=>({...p,[id]:!p[id]}))}/>
-          </div>
-        </div>
-
-        {/* Right */}
-        <div style={{width:196,flexShrink:0,background:"#0b0b1a",borderLeft:"1px solid #1e1e3a",padding:10,overflowY:"auto"}}>
-          <Inspector selectedClip={selClip} clips={clips} markers={markers} selectedMarker={selMarker} fps={fps}
-            onUpdateClip={updateClip} onDeleteClip={deleteClip} onDuplicateClip={dupClip}
-            onUpdateMarker={updateMarker} onDeleteMarker={deleteMarker} onAddClipAtMarker={addClipAtMarker}/>
-        </div>
+      <div class="button-row">
+        <button id="saveBtn" class="ghost">Save Project</button>
+        <button id="downloadBtn" class="ghost">Download .json</button>
+        <label class="file-label">Load .json<input id="loadInput" type="file" accept="application/json" /></label>
+        <button id="wavBtn" class="ghost">Export WAV</button>
       </div>
-    </div>
-  );
-}
-ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
-</script>
+    </section>
+  </main>
+
+  <template id="rowTemplate">
+    <div class="track-label"></div>
+    <div class="steps"></div>
+  </template>
+  <script src="app.js"></script>
 </body>
 </html>
