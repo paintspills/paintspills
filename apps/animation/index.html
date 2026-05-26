@@ -803,8 +803,10 @@
         .pb-step:hover { background: #111e30; border-color: var(--blue); }
         .pb-play { color: var(--accent); border-color: #1a4030; font-size: 17px; font-weight: 900; }
         .pb-play:hover { background: var(--green-dim); border-color: var(--accent); }
-        .pb-pause { color: var(--gold); border-color: #3a3010; display: none; }
+        .pb-play.active { background: var(--green-dim); border-color: var(--accent); box-shadow: 0 0 8px rgba(212,160,23,0.4); }
+        .pb-pause { color: var(--gold); border-color: #3a3010; }
         .pb-pause:hover { background: #221f00; border-color: var(--gold); }
+        .pb-pause.active { background: #221f00; border-color: var(--gold); box-shadow: 0 0 8px rgba(212,160,23,0.4); }
         .pb-stop { color: var(--danger); border-color: #3a1015; }
         .pb-stop:hover { background: #2a1012; border-color: var(--danger); }
         .pb-sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
@@ -1182,13 +1184,18 @@
         /* ── Frame Mask Overlay ── */
         #frame-mask-overlay {
             position: absolute;
+            inset: 0;
             pointer-events: none;
             z-index: 25;
-            /* Sized and positioned to match the canvas via JS */
             box-sizing: border-box;
-            /* box-shadow inset creates the solid border that hides warped edges */
-            box-shadow: none;
-            border-radius: 0;
+            /* Overlay fills the entire viewport; panels are positioned inside it
+               to match the canvas position precisely */
+        }
+        /* Each panel is one solid edge-band of the frame mask */
+        #fm-panel-left, #fm-panel-right, #fm-panel-top, #fm-panel-bottom {
+            position: absolute;
+            background: #0d1117;
+            pointer-events: none;
         }
 
         /* ── Camera Adjustments ── */
@@ -1359,8 +1366,13 @@
             <canvas id="overlay-canvas"></canvas>
             <canvas id="chroma-mask-canvas"></canvas>
             <canvas id="path-canvas"></canvas>
-            <!-- Frame mask: covers warped edges with a solid border -->
-            <div id="frame-mask-overlay"></div>
+            <!-- Frame mask: four solid panels, one per edge -->
+            <div id="frame-mask-overlay">
+                <div id="fm-panel-left"></div>
+                <div id="fm-panel-right"></div>
+                <div id="fm-panel-top"></div>
+                <div id="fm-panel-bottom"></div>
+            </div>
         </div>
 
         <!-- Capture controls — centered under the stage -->
@@ -1369,7 +1381,7 @@
                 <div class="playback-controls">
                     <button class="pb-btn pb-edge" title="Go to Start (Home)" onclick="pbGoStart()">&#x23EE;</button>
                     <button class="pb-btn pb-step" title="Step Back" onclick="pbStepBack()">&#x23EA;</button>
-                    <button class="pb-btn pb-play"  id="pb-play-btn"  title="Play (P)"  onclick="pbPlay()">&#x23F5;</button>
+                    <button class="pb-btn pb-play active"  id="pb-play-btn"  title="Play (P)"  onclick="pbPlay()">&#x23F5;</button>
                     <button class="pb-btn pb-pause" id="pb-pause-btn" title="Pause"      onclick="pbPause()">&#x23F8;</button>
                     <button class="pb-btn pb-stop"  title="Stop"      onclick="pbStop()">&#x23F9;</button>
                     <button class="pb-btn pb-step" title="Step Forward" onclick="pbStepForward()">&#x23E9;</button>
@@ -1953,38 +1965,39 @@
         if (info) info.textContent = none ? 'full frame' : `${cr.w}×${cr.h} px`;
 
         if (none) {
-            mask.style.boxShadow = 'none';
-            mask.style.width  = '0';
-            mask.style.height = '0';
+            // Hide all panels (overlay itself always fills viewport via inset:0)
+            ['fm-panel-left','fm-panel-right','fm-panel-top','fm-panel-bottom'].forEach(id => {
+                const p = document.getElementById(id);
+                if (p) p.style.cssText = 'width:0; height:0;';
+            });
             return;
         }
 
-        // Position overlay exactly over the canvas
+        // Get canvas position relative to the viewport (overlay fills viewport via inset:0)
         const rect = canvas.getBoundingClientRect();
         const wrap = document.getElementById('viewport').getBoundingClientRect();
-        mask.style.left   = (rect.left - wrap.left) + 'px';
-        mask.style.top    = (rect.top  - wrap.top)  + 'px';
-        mask.style.width  = rect.width  + 'px';
-        mask.style.height = rect.height + 'px';
-
-        // Four independent inset shadows in the app background color #0d1117
-        // box-shadow: inset can't do per-side independently, so we fake it with
-        // four overlapping inset shadows offset to cover each edge.
+        // cX/cY: canvas top-left within the viewport coordinate space
+        const cX = rect.left - wrap.left;
+        const cY = rect.top  - wrap.top;
         const dW = rect.width;
         const dH = rect.height;
         const tL = dW * frameMask.left   / 100;
         const tR = dW * frameMask.right  / 100;
         const tT = dH * frameMask.top    / 100;
         const tB = dH * frameMask.bottom / 100;
-        const col = '#0d1117';
-        // Each shadow: offset so only one edge shows, spread large enough to fill
-        const big = Math.max(dW, dH) * 2;
-        mask.style.boxShadow = [
-            `inset ${tL}px 0 0 0 ${col}`,          // left
-            `inset -${tR}px 0 0 0 ${col}`,         // right
-            `inset 0 ${tT}px 0 0 ${col}`,          // top
-            `inset 0 -${tB}px 0 0 ${col}`,         // bottom
-        ].join(', ');
+        const pL = document.getElementById('fm-panel-left');
+        const pR = document.getElementById('fm-panel-right');
+        const pT = document.getElementById('fm-panel-top');
+        const pB = document.getElementById('fm-panel-bottom');
+        // Each panel is offset from the canvas position within the full-viewport overlay.
+        // Left panel: full canvas height, left edge of canvas, tL wide
+        pL.style.cssText = `left:${cX}px; top:${cY}px; width:${tL}px; height:${dH}px;`;
+        // Right panel: full canvas height, right edge of canvas, tR wide
+        pR.style.cssText = `left:${cX + dW - tR}px; top:${cY}px; width:${tR}px; height:${dH}px;`;
+        // Top panel: between left and right panels, top edge of canvas, tT tall
+        pT.style.cssText = `left:${cX + tL}px; top:${cY}px; width:${dW - tL - tR}px; height:${tT}px;`;
+        // Bottom panel: between left and right panels, bottom edge of canvas, tB tall
+        pB.style.cssText = `left:${cX + tL}px; top:${cY + dH - tB}px; width:${dW - tL - tR}px; height:${tB}px;`;
     }
 
     // Keep frame mask synced when window resizes
@@ -3264,8 +3277,8 @@
         isPlaying   = true;
         playheadIdx = currentFrameIdx >= 0 ? currentFrameIdx : 0;
         playbackCanvas.style.display = 'block';
-        document.getElementById('pb-play-btn').style.display  = 'none';
-        document.getElementById('pb-pause-btn').style.display = '';
+        document.getElementById('pb-play-btn').classList.remove('active');
+        document.getElementById('pb-pause-btn').classList.add('active');
         const fps = parseInt(document.getElementById('fps-slider').value) || 12;
         let holdOffset = 0;
         for (let i = 0; i < playheadIdx; i++) holdOffset += parseInt(frames[i].hold) || 1;
@@ -3278,8 +3291,8 @@
         isPlaying = false; clearTimeout(playTimeout);
         soundTracks.forEach(st => st.clips.forEach(clip => { if (clip.audio) clip.audio.pause(); }));
         playbackCanvas.style.display = 'none';
-        document.getElementById('pb-play-btn').style.display  = '';
-        document.getElementById('pb-pause-btn').style.display = 'none';
+        document.getElementById('pb-play-btn').classList.add('active');
+        document.getElementById('pb-pause-btn').classList.remove('active');
         currentFrameIdx = playheadIdx;
         updateFrameDisplay(); updateInfoPanel();
     }
@@ -3287,8 +3300,8 @@
         if (isPlaying) { isPlaying = false; clearTimeout(playTimeout); }
         soundTracks.forEach(st => st.clips.forEach(clip => { if (clip.audio) { clip.audio.pause(); clip.audio.currentTime = 0; } }));
         playbackCanvas.style.display = 'none';
-        document.getElementById('pb-play-btn').style.display  = '';
-        document.getElementById('pb-pause-btn').style.display = 'none';
+        document.getElementById('pb-play-btn').classList.add('active');
+        document.getElementById('pb-pause-btn').classList.remove('active');
     }
     function togglePlayback() { isPlaying ? pbStop() : pbPlay(); }
 
@@ -4000,7 +4013,23 @@
             const img = new Image();
             img.onload = () => {
                 onionCtx.clearRect(0,0,onionCanvas.width,onionCanvas.height);
-                onionCtx.drawImage(img, 0, 0);
+                // If the frame mask is active, the captured image is a cropped sub-region
+                // of the full camera canvas. We must draw it back at the crop offset and
+                // at the full canvas size so it aligns with the live camera view.
+                const cr = getCropRect();
+                const W  = onionCanvas.width;
+                const H  = onionCanvas.height;
+                const noMask = frameMask.left === 0 && frameMask.right  === 0 &&
+                               frameMask.top  === 0 && frameMask.bottom === 0;
+                if (noMask) {
+                    // No crop active — draw at full canvas size (handles any natural-size img)
+                    onionCtx.drawImage(img, 0, 0, W, H);
+                } else {
+                    // Crop was active when this frame was captured.
+                    // Place the cropped image back at its original position within the
+                    // full canvas so it lines up with the live feed.
+                    onionCtx.drawImage(img, cr.x, cr.y, cr.w, cr.h);
+                }
             };
             img.src = url;
         }
@@ -4070,6 +4099,7 @@
 
     const resizeObs = new ResizeObserver(() => {
         if (camCanvas.width > 0) syncOverlayCanvases();
+        positionFrameMask(); // re-sync mask panels whenever the viewport changes size
         // Redraw ruler to fill new width
         if (frames.length > 0) {
             const fps      = parseInt(document.getElementById('fps-slider').value);
