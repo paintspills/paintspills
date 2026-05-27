@@ -3321,7 +3321,17 @@
         const img   = new Image();
         img.onload = () => {
             playCtx.clearRect(0, 0, playbackCanvas.width, playbackCanvas.height);
-            playCtx.drawImage(img, 0, 0);
+            // Frames are stored as cropped sub-regions when the frame mask is active.
+            // Re-stamp them at the crop offset so they align with the full canvas,
+            // exactly as updateOnion does for the onion-skin canvas.
+            const cr = getCropRect();
+            const noMask = frameMask.left === 0 && frameMask.right  === 0 &&
+                           frameMask.top  === 0 && frameMask.bottom === 0;
+            if (noMask) {
+                playCtx.drawImage(img, 0, 0, playbackCanvas.width, playbackCanvas.height);
+            } else {
+                playCtx.drawImage(img, cr.x, cr.y, cr.w, cr.h);
+            }
             const fps   = parseInt(document.getElementById('fps-slider').value);
             playTimeout = setTimeout(() => playSequence(playheadIdx + 1), (1000 / fps) * frame.hold);
         };
