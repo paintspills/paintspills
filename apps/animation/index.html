@@ -3620,9 +3620,63 @@
         offscreen.height = H;
         const offCtx = offscreen.getContext('2d');
 
-        // ── Set up MediaRecorder ──
-        const stream   = offscreen.captureStream(fps);
-        const recorder = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 8_000_000 });
+        // ── Mix audio clips into a single AudioBuffer via OfflineAudioContext ──
+        const totalHoldUnits = frames.reduce((s, f) => s + (Math.max(1, parseInt(f.hold) || 1)), 0);
+        const videoDuration  = totalHoldUnits / fps;   // seconds
+        const sampleRate     = 44100;
+        let audioTrack       = null;
+
+        const allClips = soundTracks.flatMap(t => t.clips).filter(c => c.buffer && !c.muted);
+        if (allClips.length > 0) {
+            try {
+                const offlineCtx = new OfflineAudioContext(2, Math.ceil(sampleRate * videoDuration), sampleRate);
+                allClips.forEach(clip => {
+                    // Convert pixel positions to seconds using the same PX_PER_HOLD scale
+                    const pxPerSec      = PX_PER_HOLD * fps;          // px per second at current zoom
+                    const clipStartSec  = clip.startPx    / pxPerSec;
+                    const trimStartSec  = clip.trimStartPx / pxPerSec;
+                    const clipDurSec    = clip.widthPx     / pxPerSec;
+
+                    const src = offlineCtx.createBufferSource();
+                    src.buffer = clip.buffer;
+                    src.connect(offlineCtx.destination);
+                    // offset into the buffer where we start reading (trim)
+                    const bufOffset = Math.max(0, trimStartSec);
+                    // when in the timeline the clip starts playing
+                    const when = Math.max(0, clipStartSec);
+                    src.start(when, bufOffset, clipDurSec);
+                });
+                const renderedBuffer = await offlineCtx.startRendering();
+
+                // Convert AudioBuffer → MediaStream audio track via AudioContext.
+                // Don't start playback yet — we'll fire it exactly when frame drawing begins.
+                const liveCtx  = new AudioContext({ sampleRate });
+                const src2     = liveCtx.createBufferSource();
+                src2.buffer    = renderedBuffer;
+                const dest     = liveCtx.createMediaStreamDestination();
+                src2.connect(dest);
+                audioTrack     = dest.stream.getAudioTracks()[0];
+                // Store src2 on audioTrack so we can start it in sync with frame drawing
+                audioTrack._startFn = () => src2.start(0);
+            } catch(audioErr) {
+                console.warn('Audio mix failed, exporting video-only:', audioErr);
+            }
+        }
+
+        // ── Set up MediaRecorder — add audio track if available ──
+        const stream = offscreen.captureStream(fps);
+        if (audioTrack) stream.addTrack(audioTrack);
+
+        // Pick a mime type that supports audio if we have it
+        const mimeTypesWithAudio = [
+            'video/webm;codecs=vp9,opus',
+            'video/webm;codecs=vp8,opus',
+            'video/webm;codecs=vp9',
+            'video/webm;codecs=vp8',
+            'video/webm',
+        ];
+        const finalMime = mimeTypesWithAudio.find(m => MediaRecorder.isTypeSupported(m)) || mime;
+        const recorder = new MediaRecorder(stream, { mimeType: finalMime, videoBitsPerSecond: 8_000_000 });
         const chunks   = [];
         recorder.ondataavailable = e => { if (e.data && e.data.size > 0) chunks.push(e.data); };
 
@@ -3652,6 +3706,11 @@
             let i = 0;
             function drawNext() {
                 if (cancelled || i >= total) { resolve(); return; }
+                // Start audio exactly on the first frame so video and audio are in sync
+                if (i === 0 && audioTrack && audioTrack._startFn) {
+                    audioTrack._startFn();
+                    audioTrack._startFn = null;
+                }
                 const img = imgCache[i];
                 if (img) {
                     offCtx.clearRect(0, 0, W, H);
