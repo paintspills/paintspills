@@ -3333,7 +3333,7 @@
     function pbPause() {
         if (!isPlaying) return;
         isPlaying = false; clearTimeout(playTimeout);
-        soundTracks.forEach(st => st.clips.forEach(clip => { if (clip.audio) clip.audio.pause(); }));
+        soundTracks.forEach(st => st.clips.forEach(clip => { if (clip._startTimeout) { clearTimeout(clip._startTimeout); clip._startTimeout = null; } if (clip.audio) clip.audio.pause(); }));
         playbackCanvas.style.display = 'none';
         document.getElementById('pb-play-btn').classList.add('active');
         document.getElementById('pb-pause-btn').classList.remove('active');
@@ -3342,7 +3342,7 @@
     }
     function pbStop() {
         if (isPlaying) { isPlaying = false; clearTimeout(playTimeout); }
-        soundTracks.forEach(st => st.clips.forEach(clip => { if (clip.audio) { clip.audio.pause(); clip.audio.currentTime = 0; } }));
+        soundTracks.forEach(st => st.clips.forEach(clip => { if (clip._startTimeout) { clearTimeout(clip._startTimeout); clip._startTimeout = null; } if (clip.audio) { clip.audio.pause(); clip.audio.currentTime = 0; } }));
         playbackCanvas.style.display = 'none';
         document.getElementById('pb-play-btn').classList.add('active');
         document.getElementById('pb-pause-btn').classList.remove('active');
@@ -4279,14 +4279,37 @@
     // ══════════════════════════════════════════════
 
     function sndPlayClipFrom(clip, playheadPx, fps) {
-        if (!clip.audio || !clip.audio.src) return;
+        if (!clip.audio) return;
+        // Cancel any previously scheduled delayed start
+        if (clip._startTimeout) { clearTimeout(clip._startTimeout); clip._startTimeout = null; }
+
         const offsetPx = playheadPx - clip.startPx;
-        if (offsetPx < 0 || offsetPx > clip.widthPx) return; // playhead outside visible clip
-        // trimStartPx shifts how far into the audio we actually start
-        const audioOffsetSec = ((offsetPx + clip.trimStartPx) / PX_PER_HOLD) / fps;
-        clip.audio.currentTime = Math.min(audioOffsetSec, clip.audio.duration || 0);
-        clip.audio.muted = clip.muted;
-        clip.audio.play().catch(() => {});
+
+        // Playhead is past the end of the clip — nothing to play
+        if (offsetPx > clip.widthPx) return;
+
+        const doPlay = (seekSec) => {
+            clip.audio.muted = clip.muted || false;
+            const dur = clip.audio.duration;
+            clip.audio.currentTime = (isFinite(dur) && seekSec > 0) ? Math.min(seekSec, dur) : 0;
+            clip.audio.play().catch(err => {
+                document.getElementById('status-msg').textContent = `Audio error: ${err.message}`;
+            });
+        };
+
+        if (offsetPx >= 0) {
+            // Playhead is inside the clip — play from the correct offset
+            const seekSec = (offsetPx + (clip.trimStartPx || 0)) / PX_PER_HOLD / fps;
+            doPlay(seekSec);
+        } else {
+            // Playhead is before the clip — schedule the start after the gap
+            const delayMs = (-offsetPx / PX_PER_HOLD / fps) * 1000;
+            const seekSec = (clip.trimStartPx || 0) / PX_PER_HOLD / fps;
+            clip._startTimeout = setTimeout(() => {
+                if (!isPlaying) return;
+                doPlay(seekSec);
+            }, delayMs);
+        }
     }
 
     // ── Track management ──
