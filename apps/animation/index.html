@@ -2629,6 +2629,11 @@
         const targetW = camCanvas.width  || 1920;
         const targetH = camCanvas.height || 1080;
 
+        // Snapshot insert position now, before async reads complete
+        const insertAt = (currentFrameIdx >= 0 && currentFrameIdx < frames.length - 1)
+            ? currentFrameIdx + 1
+            : frames.length;
+
         files.sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }));
 
         const results  = new Array(files.length).fill(null);
@@ -2652,9 +2657,10 @@
                     if (resolved === files.length) {
                         const scene = document.getElementById('meta-scene').value;
                         const take  = document.getElementById('meta-take').value;
-                        results.forEach(data => frames.push({ data, hold: 1, scene, take, mirror: false, chroma: false }));
+                        const newFrames = results.map(data => ({ data, hold: 1, scene, take, mirror: false, chroma: false }));
+                        frames.splice(insertAt, 0, ...newFrames);
                         renderUI();
-                        scrubTo(frames.length - 1);
+                        scrubTo(insertAt + files.length - 1);
                         document.getElementById('status-msg').textContent =
                             `Imported ${files.length} scan${files.length !== 1 ? 's' : ''}`;
                     }
