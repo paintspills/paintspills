@@ -1319,6 +1319,7 @@
             <div class="paste-bar" id="paste-bar">
                 <span id="paste-bar-label">📋 0 frames</span>
                 <button onclick="pasteFrames()" title="Paste after current frame (Ctrl+V)">Paste</button>
+                <button onclick="pasteFramesReversed()" title="Paste in reverse order (Ctrl+Shift+V)" style="background:#1a2535;">Paste ↩</button>
                 <button class="btn-clear-clip" onclick="clearClipboard()" title="Clear clipboard">✕</button>
             </div>
             <button class="btn-import-scan" onclick="document.getElementById('scan-upload').click()">&#xFF0B; IMPORT SCANS</button>
@@ -2763,6 +2764,13 @@
 
                 if (ti === 0) cell.addEventListener('click', ev => handleRowClick(idx, ev));
                 if (ti === 0) cell.addEventListener('contextmenu', ev => showCtxMenu(ev, idx));
+                if (ti === 0) {
+                    cell.draggable = true;
+                    cell.addEventListener('dragstart', handleDragStart);
+                    cell.addEventListener('dragover',  handleDragOver);
+                    cell.addEventListener('drop',      handleDrop);
+                    cell.addEventListener('dragend',   handleDragEnd);
+                }
                 row.appendChild(cell);
 
                 // X-sheet (primary track only)
@@ -3067,6 +3075,19 @@
             `Pasted ${pasted.length} frame${pasted.length !== 1 ? 's' : ''} at position ${insertAt + 1}`;
     }
 
+    function pasteFramesReversed() {
+        if (!frameClipboard.length) { document.getElementById('status-msg').textContent = 'Clipboard is empty'; return; }
+        const pasted = frameClipboard.slice().reverse().map(f => ({ ...f }));
+        const insertAt = currentFrameIdx >= 0 ? currentFrameIdx + 1 : frames.length;
+        frames.splice(insertAt, 0, ...pasted);
+        selectedIndices.clear();
+        for (let i = insertAt; i < insertAt + pasted.length; i++) selectedIndices.add(i);
+        renderUI();
+        scrubTo(insertAt);
+        document.getElementById('status-msg').textContent =
+            `Pasted ${pasted.length} frame${pasted.length !== 1 ? 's' : ''} (reversed) at position ${insertAt + 1}`;
+    }
+
     function clearClipboard() {
         frameClipboard = [];
         updatePasteBar();
@@ -3101,6 +3122,8 @@
         // Dim paste option if clipboard is empty
         document.getElementById('ctx-paste').style.opacity = frameClipboard.length ? '1' : '0.4';
         document.getElementById('ctx-paste').style.pointerEvents = frameClipboard.length ? '' : 'none';
+        document.getElementById('ctx-paste-rev').style.opacity = frameClipboard.length ? '1' : '0.4';
+        document.getElementById('ctx-paste-rev').style.pointerEvents = frameClipboard.length ? '' : 'none';
         menu.style.left = Math.min(e.clientX, window.innerWidth - 180) + 'px';
         menu.style.top  = Math.min(e.clientY, window.innerHeight - 200) + 'px';
         menu.classList.add('open');
@@ -3110,9 +3133,10 @@
     document.addEventListener('click',       closeCtxMenu);
     document.addEventListener('contextmenu', e => { if (!e.target.closest('.x-row')) closeCtxMenu(); });
 
-    function ctxCopy()      { closeCtxMenu(); copyFrames(); }
-    function ctxCut()       { closeCtxMenu(); cutFrames(); }
-    function ctxPaste()     { closeCtxMenu(); pasteFrames(); }
+    function ctxCopy()         { closeCtxMenu(); copyFrames(); }
+    function ctxCut()          { closeCtxMenu(); cutFrames(); }
+    function ctxPaste()        { closeCtxMenu(); pasteFrames(); }
+    function ctxPasteReversed(){ closeCtxMenu(); pasteFramesReversed(); }
     function ctxDuplicate() {
         closeCtxMenu();
         const indices = selectedIndices.size > 0
@@ -4199,6 +4223,7 @@
         // ── Copy / Cut / Paste ──
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC') { e.preventDefault(); copyFrames(); return; }
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyX') { e.preventDefault(); cutFrames();  return; }
+        if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyV') { e.preventDefault(); pasteFramesReversed(); return; }
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') { e.preventDefault(); pasteFrames(); return; }
 
         if (e.code==='Space')      { e.preventDefault(); captureFrame(); }
@@ -4692,6 +4717,9 @@
         </div>
         <div class="ctx-item" id="ctx-paste" onclick="ctxPaste()">
             <span>📋 Paste after</span><span class="ctx-key">Ctrl+V</span>
+        </div>
+        <div class="ctx-item" id="ctx-paste-rev" onclick="ctxPasteReversed()">
+            <span>📋 Paste reversed</span><span class="ctx-key">Ctrl+⇧+V</span>
         </div>
         <div class="ctx-sep"></div>
         <div class="ctx-item" id="ctx-dup" onclick="ctxDuplicate()">
