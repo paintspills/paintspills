@@ -1759,6 +1759,48 @@
     // ── Clipboard (copy/paste frames) ──
     let frameClipboard = [];  // array of deep-copied frame objects
 
+    // ── Undo history ──
+    const MAX_UNDO = 20;
+    let undoHistory = [];
+
+    function pushUndo() {
+        undoHistory.push({
+            frames:      frames.map(f => ({ ...f })),
+            soundTracks: soundTracks.map(st => ({
+                ...st,
+                clips: st.clips.map(c => ({ ...c }))
+            }))
+        });
+        if (undoHistory.length > MAX_UNDO) undoHistory.shift();
+    }
+
+    function performUndo() {
+        if (!undoHistory.length) {
+            document.getElementById('status-msg').textContent = 'Nothing to undo';
+            return;
+        }
+        const snap = undoHistory.pop();
+        // Restore frames — reattach audio/buffer refs from current clips by id
+        frames = snap.frames;
+        videoTracks[0].frames = frames;
+        // Restore sound tracks — reattach live audio/buffer objects
+        const liveClips = soundTracks.flatMap(t => t.clips);
+        soundTracks = snap.soundTracks.map(st => ({
+            ...st,
+            clips: st.clips.map(sc => {
+                const live = liveClips.find(c => c.id === sc.id);
+                return live ? { ...sc, audio: live.audio, buffer: live.buffer } : sc;
+            })
+        }));
+        selectedIndices.clear();
+        selectedClipId = null;
+        const newIdx = Math.min(Math.max(currentFrameIdx, 0), frames.length - 1);
+        currentFrameIdx = frames.length ? newIdx : -1;
+        renderUI();
+        if (currentFrameIdx >= 0) scrubTo(currentFrameIdx);
+        document.getElementById('status-msg').textContent = 'Undo';
+    }
+
     let overlayMode    = null;
     let overlayOpacity = 0.5;
 
@@ -2611,6 +2653,7 @@
     }
 
     function addFrame(dataURL, meta = {}) {
+        pushUndo();
         const newFrame = {
             data:   dataURL,
             hold:   1,
@@ -3049,6 +3092,7 @@
             ? Array.from(selectedIndices).sort((a, b) => a - b)
             : (currentFrameIdx >= 0 ? [currentFrameIdx] : []);
         if (!indices.length) { document.getElementById('status-msg').textContent = 'Nothing to cut'; return; }
+        pushUndo();
         frameClipboard = indices.map(i => ({ ...frames[i] }));
         updatePasteBar();
         // Remove frames in reverse-index order so splicing doesn't shift indices
@@ -3063,7 +3107,7 @@
 
     function pasteFrames() {
         if (!frameClipboard.length) { document.getElementById('status-msg').textContent = 'Clipboard is empty'; return; }
-        // Deep-clone clipboard so repeat pastes work independently
+        pushUndo();
         const pasted = frameClipboard.map(f => ({ ...f }));
         const insertAt = currentFrameIdx >= 0 ? currentFrameIdx + 1 : frames.length;
         frames.splice(insertAt, 0, ...pasted);
@@ -3077,6 +3121,7 @@
 
     function pasteFramesReversed() {
         if (!frameClipboard.length) { document.getElementById('status-msg').textContent = 'Clipboard is empty'; return; }
+        pushUndo();
         const pasted = frameClipboard.slice().reverse().map(f => ({ ...f }));
         const insertAt = currentFrameIdx >= 0 ? currentFrameIdx + 1 : frames.length;
         frames.splice(insertAt, 0, ...pasted);
@@ -3228,6 +3273,7 @@
     function handleDragOver(e) { e.preventDefault(); this.classList.add('over'); return false; }
     function handleDrop(e) {
         e.preventDefault();
+        pushUndo();
         const toIdx = parseInt(this.dataset.index);
         if (isDraggingGroup) {
             const sorted = Array.from(selectedIndices).sort((a,b) => a-b);
@@ -3254,7 +3300,7 @@
             r.classList.remove('dragging', 'over', 'drag-group-dragging'));
     }
 
-    function updateHold(idx, val) { frames[idx].hold = parseInt(val) || 1; renderUI(); }
+    function updateHold(idx, val) { pushUndo(); frames[idx].hold = parseInt(val) || 1; renderUI(); }
 
     // ── Live cell resize by dragging right edge ──
     function startCellResize(ev, idx, cellEl, badgeEl, vtrack) {
@@ -3515,6 +3561,7 @@
     function uploadJSON(e) {
         const reader = new FileReader();
         reader.onload = ev => {
+            pushUndo();
             const data = JSON.parse(ev.target.result);
             if (data.metadata) {
                 if (data.metadata.project) document.getElementById('meta-project').value = data.metadata.project;
@@ -3546,6 +3593,7 @@
     function appendJSON(e) {
         const reader = new FileReader();
         reader.onload = ev => {
+            pushUndo();
             const data = JSON.parse(ev.target.result);
             if (!data.frames || !data.frames.length) {
                 document.getElementById('status-msg').textContent = 'No frames found in that project file.';
@@ -4129,6 +4177,7 @@
     }
     function deleteSelectedFrame() {
         if (!frames.length || isPlaying) return;
+        pushUndo();
         // Multi-select: delete all selected frames
         if (selectedIndices.size > 1) {
             const indices = Array.from(selectedIndices).sort((a, b) => a - b);
@@ -4154,6 +4203,7 @@
     }
     function clearProject() {
         if (confirm('Start a new project? This will clear all frames and tracks.')) {
+            pushUndo();
             pbStop();
             videoTracks = [{ id: 1, name: 'V1', frames: [] }];
             soundTracks = [{ id: 1, name: 'A1', clips: [] }];
@@ -4220,14 +4270,22 @@
     window.onkeydown = e => {
         if (e.target.tagName==='INPUT'||e.target.tagName==='SELECT') return;
 
-        // ── Copy / Cut / Paste ──
+        // ── Undo / Copy / Cut / Paste ──
+        if ((e.ctrlKey || e.metaKey) && e.code === 'KeyZ') { e.preventDefault(); performUndo(); return; }
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyC') { e.preventDefault(); copyFrames(); return; }
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyX') { e.preventDefault(); cutFrames();  return; }
         if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === 'KeyV') { e.preventDefault(); pasteFramesReversed(); return; }
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') { e.preventDefault(); pasteFrames(); return; }
 
-        if (e.code==='Space')      { e.preventDefault(); captureFrame(); }
-        if (e.code==='Backspace')  { e.preventDefault(); deleteSelectedFrame(); }
+        if (e.code==='Space')     { e.preventDefault(); captureFrame(); }
+        if (e.code==='Backspace') {
+            e.preventDefault();
+            if (selectedClipId !== null) {
+                removeClip(selectedClipId);
+            } else {
+                deleteSelectedFrame();
+            }
+        }
         if (e.code==='ArrowLeft')  { e.preventDefault(); pbStepBack(); }
         if (e.code==='ArrowRight') { e.preventDefault(); pbStepForward(); }
         if (e.code==='Home')       { e.preventDefault(); pbGoStart(); }
@@ -4540,6 +4598,7 @@
     function removeClip(id, strack) {
         if (!strack) strack = soundTracks.find(t => t.clips.some(c => c.id === id));
         if (!strack) return;
+        pushUndo();
         const clip = strack.clips.find(c => c.id === id);
         if (clip && clip.audio) { clip.audio.pause(); clip.audio.src = ''; }
         strack.clips = strack.clips.filter(c => c.id !== id);
@@ -4566,6 +4625,7 @@
             el.style.left = clip.startPx + 'px';
         }
         function onUp() {
+            pushUndo();
             el.classList.remove('dragging-clip');
             document.body.style.cursor = '';
             document.body.style.userSelect = '';
