@@ -4470,7 +4470,6 @@
         });
 
         if (window.tlUpdateScrollSlider) setTimeout(window.tlUpdateScrollSlider, 0);
-        inner.style.transform = `translateX(-${wrap.scrollLeft}px)`;
     }
 
     // Shim: old renderSoundClips → render all tracks
@@ -4562,7 +4561,8 @@
 
         function onMove(e) {
             const dx = (e.clientX - startMouseX) + (wrap.scrollLeft - startScroll);
-            clip.startPx = Math.max(0, startPx + dx);
+            const raw = Math.max(0, startPx + dx);
+            clip.startPx = Math.round(raw / PX_PER_HOLD) * PX_PER_HOLD;
             el.style.left = clip.startPx + 'px';
         }
         function onUp() {
@@ -4585,11 +4585,12 @@
         document.body.style.cursor = 'ew-resize'; document.body.style.userSelect = 'none';
         function onMove(e) {
             const dx = e.clientX - startMouseX;
-            const newTrim = Math.max(0, Math.min(maxTrim, startTrim + dx));
-            const trimDiff = newTrim - startTrim;
-            clip.trimStartPx = newTrim;
+            const rawTrim = Math.max(0, Math.min(maxTrim, startTrim + dx));
+            const snappedTrim = Math.round(rawTrim / PX_PER_HOLD) * PX_PER_HOLD;
+            const trimDiff = snappedTrim - startTrim;
+            clip.trimStartPx = snappedTrim;
             clip.startPx     = Math.max(0, startLeft + trimDiff);
-            clip.widthPx     = Math.max(20, startWidth - trimDiff);
+            clip.widthPx     = Math.max(PX_PER_HOLD, startWidth - trimDiff);
             el.style.left = clip.startPx + 'px'; el.style.width = clip.widthPx + 'px';
             const cvs = el.querySelector('canvas');
             if (cvs) { cvs.width = clip.widthPx; drawClipWaveform(cvs, clip); }
@@ -4610,7 +4611,8 @@
         document.body.style.cursor = 'ew-resize'; document.body.style.userSelect = 'none';
         function onMove(e) {
             const dx = e.clientX - startMouseX;
-            clip.widthPx = Math.max(20, Math.min(maxWidth, startWidth + dx));
+            const raw = Math.max(PX_PER_HOLD, Math.min(maxWidth, startWidth + dx));
+            clip.widthPx = Math.round(raw / PX_PER_HOLD) * PX_PER_HOLD;
             el.style.width = clip.widthPx + 'px';
             const cvs = el.querySelector('canvas');
             if (cvs) { cvs.width = clip.widthPx; drawClipWaveform(cvs, clip); }
@@ -4717,10 +4719,9 @@
         setTimeout(updateThumb, 0);
     })();
 
-    // Keep sound clips inner translated in sync with frame track scroll
+    // Expand sound clip inner width when timeline scrolls wider
     document.getElementById('tl-track-wrap').addEventListener('scroll', function() {
         document.querySelectorAll('.snd-clips-inner').forEach(inner => {
-            inner.style.transform = `translateX(-${this.scrollLeft}px)`;
             if (parseInt(inner.style.width) < this.scrollWidth)
                 inner.style.width = this.scrollWidth + 'px';
         });
