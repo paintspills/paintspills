@@ -1429,6 +1429,8 @@
                     min="1" max="10" step="0.25" value="4"
                     oninput="tlZoomFromSlider(this.value)">
                 <span class="tl-zoom-val" id="tl-zoom-val">4×</span>
+                <div style="width:1px; height:18px; background:var(--border2); margin:0 4px; flex-shrink:0;"></div>
+                <button class="tl-zoom-btn" onclick="addSoundTrack()" title="Add audio track" style="width:auto; padding:0 8px; font-size:11px; font-weight:700; color:#34d399; border-color:#1a3a2a;">+ Audio Track</button>
             </div>
 
             <!-- Custom timeline scrollbar -->
@@ -2800,6 +2802,7 @@
             lbl.innerHTML = `
                 <span class="tl-track-label-name">🔊 ${strack.name}</span>
                 <button class="tl-label-btn snd" onclick="loadSoundForTrack(${strack.id})" title="Add clip">+ clip</button>
+                ${soundTracks.length > 1 ? `<button class="tl-label-btn del" onclick="removeSoundTrack(${strack.id})" title="Remove track">✕</button>` : ''}
             `;
             labelsCol.appendChild(lbl);
 
@@ -4299,6 +4302,12 @@
         // Find target track by the stamped ID
         const targetTrack = soundTracks.find(t => t.id === trackId) || soundTracks[0];
 
+        // Insert at playhead position (left edge of current frame)
+        let insertAtPx = 0;
+        if (currentFrameIdx >= 0 && frames.length > 0) {
+            for (let i = 0; i < currentFrameIdx; i++) insertAtPx += (parseInt(frames[i].hold) || 1) * PX_PER_HOLD;
+        }
+
         const colorDef = CLIP_COLORS[sndClipIdSeq % CLIP_COLORS.length];
         const clip = {
             id:          ++sndClipIdSeq,
@@ -4306,7 +4315,7 @@
             audioUrl:    URL.createObjectURL(file),
             buffer:      null,
             audio:       new Audio(),
-            startPx:     0,
+            startPx:     insertAtPx,
             widthPx:     200,
             trimStartPx: 0,
             fullWidthPx: 200,
