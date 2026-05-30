@@ -3165,7 +3165,7 @@
     function updateInfoPanel() {
         const fps = parseInt(document.getElementById('fps-slider').value);
         let totalHold = 0;
-        frames.forEach(f => totalHold += parseInt(f.hold));
+        frames.forEach(f => totalHold += parseInt(f.hold) || 1);
         updateStats(totalHold);
     }
 
@@ -3307,6 +3307,7 @@
 
     function playSequence(idx) {
         if (!isPlaying) return;
+        if (!frames.length) { pbStop(); return; }
         const wrapped = idx % frames.length;
         // Detect loop wrap-around: restart all clips from their beginning
         if (idx > 0 && wrapped === 0) {
@@ -3491,7 +3492,9 @@
                 maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
                 maskCanvas.style.display = 'none';
             }
-            frames = data.frames; selectedIndices.clear();
+            frames = data.frames;
+            videoTracks[0].frames = frames;
+            selectedIndices.clear();
             renderUI(); scrubTo(frames.length - 1);
         };
         reader.readAsText(e.target.files[0]);
