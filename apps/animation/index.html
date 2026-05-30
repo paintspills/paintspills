@@ -1530,7 +1530,7 @@
                         <button class="cap-btn cap-live" id="btn-mirror" onclick="toggleMirror()" title="Mirror live view and captures left-to-right" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x21C6; MIRROR</button>
                     </div>
                     <div style="display:flex; gap:5px;">
-                        <button class="cap-btn cap-undo" onclick="deleteLastFrame()" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x21A9; UNDO</button>
+                        <button class="cap-btn cap-undo" onclick="deleteSelectedFrame()" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x21A9; UNDO</button>
                         <button class="cap-btn cap-clear" onclick="clearProject()" title="Clear all frames" style="flex:1; font-size:11px; padding:6px; border-radius:6px;">&#x1F5D1; CLEAR ALL</button>
                     </div>
                 </div>
@@ -2594,26 +2594,31 @@
     function captureFrameWithHold(hold) {
         if (isPlaying) return;
         captureFrame();
-        const idx = frames.length - 1;
-        if (idx >= 0) {
-            frames[idx].hold = hold;
+        // addFrame already set currentFrameIdx to the inserted position
+        if (currentFrameIdx >= 0) {
+            frames[currentFrameIdx].hold = hold;
             renderUI();
             document.getElementById('status-msg').textContent =
-                `Captured frame ${idx + 1} · hold ×${hold}`;
+                `Captured frame ${currentFrameIdx + 1} · hold ×${hold}`;
         }
     }
 
     function addFrame(dataURL, meta = {}) {
-        frames.push({
+        const newFrame = {
             data:   dataURL,
             hold:   1,
             scene:  document.getElementById('meta-scene').value,
             take:   document.getElementById('meta-take').value,
             mirror: meta.mirror ?? mirrorMode,
             chroma: meta.chroma ?? (document.getElementById('chroma-toggle').checked || (maskPixels && maskPixels.some(v=>v>0))),
-        });
+        };
+        // Insert after current frame when mid-sequence; otherwise append to end
+        const insertAt = (currentFrameIdx >= 0 && currentFrameIdx < frames.length - 1)
+            ? currentFrameIdx + 1
+            : frames.length;
+        frames.splice(insertAt, 0, newFrame);
         renderUI();
-        scrubTo(frames.length - 1);
+        scrubTo(insertAt);
     }
 
     // ── Import scanned images ──
@@ -4061,6 +4066,29 @@
         selectedIndices.delete(frames.length - 1);
         frames.pop(); renderUI(); scrubTo(frames.length - 1);
     }
+    function deleteSelectedFrame() {
+        if (!frames.length || isPlaying) return;
+        // Multi-select: delete all selected frames
+        if (selectedIndices.size > 1) {
+            const indices = Array.from(selectedIndices).sort((a, b) => a - b);
+            indices.slice().reverse().forEach(i => frames.splice(i, 1));
+            selectedIndices.clear();
+            const newIdx = Math.min(indices[0], frames.length - 1);
+            renderUI();
+            if (newIdx >= 0) scrubTo(newIdx);
+            document.getElementById('status-msg').textContent =
+                `Deleted ${indices.length} frames`;
+            return;
+        }
+        // Single frame: delete currentFrameIdx, or fall back to last frame
+        const idx = currentFrameIdx >= 0 ? currentFrameIdx : frames.length - 1;
+        selectedIndices.delete(idx);
+        frames.splice(idx, 1);
+        const newIdx = Math.min(idx, frames.length - 1);
+        renderUI();
+        if (newIdx >= 0) scrubTo(newIdx); else currentFrameIdx = -1;
+        document.getElementById('status-msg').textContent = `Deleted frame ${idx + 1}`;
+    }
     function clearProject() {
         if (confirm('Start a new project? This will clear all frames and tracks.')) {
             pbStop();
@@ -4135,7 +4163,7 @@
         if ((e.ctrlKey || e.metaKey) && e.code === 'KeyV') { e.preventDefault(); pasteFrames(); return; }
 
         if (e.code==='Space')      { e.preventDefault(); captureFrame(); }
-        if (e.code==='Backspace')  { e.preventDefault(); deleteLastFrame(); }
+        if (e.code==='Backspace')  { e.preventDefault(); deleteSelectedFrame(); }
         if (e.code==='ArrowLeft')  { e.preventDefault(); pbStepBack(); }
         if (e.code==='ArrowRight') { e.preventDefault(); pbStepForward(); }
         if (e.code==='Home')       { e.preventDefault(); pbGoStart(); }
