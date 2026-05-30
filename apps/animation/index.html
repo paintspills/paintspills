@@ -1418,6 +1418,12 @@
                 </div>
                 <div class="tl-framecount"><span id="frame-count">0</span> fr</div>
                 <div style="width:1px; height:18px; background:var(--border2); flex-shrink:0;"></div>
+                <div id="clip-vol-control" style="display:none; align-items:center; gap:6px; flex-shrink:0;">
+                    <span style="font-size:10px; color:var(--text3); white-space:nowrap;">🔊 <span id="clip-vol-name" style="color:var(--text2); max-width:80px; overflow:hidden; text-overflow:ellipsis; display:inline-block; vertical-align:bottom;"></span></span>
+                    <input type="range" id="clip-vol-slider" min="0" max="150" value="100" style="width:80px; accent-color:#34d399;" oninput="setClipVolume(this.value)">
+                    <span id="clip-vol-pct" style="font-size:10px; font-family:monospace; color:#34d399; min-width:34px;">100%</span>
+                </div>
+                <div style="width:1px; height:18px; background:var(--border2); flex-shrink:0;"></div>
                 <button class="snd-btn" onclick="addSoundTrack()" title="Add audio track" style="color:#34d399; border-color:#1a3a2a; white-space:nowrap;">+ Audio Track</button>
             </div>
 
@@ -3754,9 +3760,12 @@
                     const trimStartSec  = clip.trimStartPx / pxPerSec;
                     const clipDurSec    = clip.widthPx     / pxPerSec;
 
-                    const src = offlineCtx.createBufferSource();
+                    const src  = offlineCtx.createBufferSource();
+                    const gain = offlineCtx.createGain();
+                    gain.gain.value = Math.min(1.5, clip.volume ?? 1);
                     src.buffer = clip.buffer;
-                    src.connect(offlineCtx.destination);
+                    src.connect(gain);
+                    gain.connect(offlineCtx.destination);
                     // offset into the buffer where we start reading (trim)
                     const bufOffset = Math.max(0, trimStartSec);
                     // when in the timeline the clip starts playing
@@ -4347,7 +4356,8 @@
         if (offsetPx > clip.widthPx) return;
 
         const doPlay = (seekSec) => {
-            clip.audio.muted = clip.muted || false;
+            clip.audio.muted  = clip.muted || false;
+            clip.audio.volume = Math.min(1, clip.volume ?? 1);
             const dur = clip.audio.duration;
             clip.audio.currentTime = (isFinite(dur) && seekSec > 0) ? Math.min(seekSec, dur) : 0;
             clip.audio.play().catch(err => {
@@ -4426,6 +4436,7 @@
             trimStartPx: 0,
             fullWidthPx: 200,
             muted:       false,
+            volume:      1,
             color:       colorDef,
         };
         clip.audio.src  = clip.audioUrl;
@@ -4515,6 +4526,7 @@
                 if (ev.target === del)  return;
                 selectedClipId = clip.id;
                 renderSoundClipsForTrack(strack);
+                updateClipVolumeUI(clip);
                 startClipDrag(ev, clip, el, strack);
             });
             el.addEventListener('dblclick', ev => {
@@ -4602,7 +4614,7 @@
         const clip = strack.clips.find(c => c.id === id);
         if (clip && clip.audio) { clip.audio.pause(); clip.audio.src = ''; }
         strack.clips = strack.clips.filter(c => c.id !== id);
-        if (selectedClipId === id) selectedClipId = null;
+        if (selectedClipId === id) { selectedClipId = null; updateClipVolumeUI(null); }
         renderSoundClipsForTrack(strack);
     }
 
@@ -4786,6 +4798,25 @@
                 inner.style.width = this.scrollWidth + 'px';
         });
     });
+
+    function updateClipVolumeUI(clip) {
+        const ctrl = document.getElementById('clip-vol-control');
+        if (!clip) { ctrl.style.display = 'none'; return; }
+        ctrl.style.display = 'flex';
+        document.getElementById('clip-vol-name').textContent = clip.fileName || '';
+        const pct = Math.round((clip.volume ?? 1) * 100);
+        document.getElementById('clip-vol-slider').value = pct;
+        document.getElementById('clip-vol-pct').textContent = pct + '%';
+    }
+
+    function setClipVolume(val) {
+        const pct = parseInt(val);
+        document.getElementById('clip-vol-pct').textContent = pct + '%';
+        const clip = soundTracks.flatMap(t => t.clips).find(c => c.id === selectedClipId);
+        if (!clip) return;
+        clip.volume = pct / 100;
+        if (clip.audio) clip.audio.volume = Math.min(1, clip.volume);
+    }
 
     initRulerScrub();
     init();  // Prompt for camera permission and start preview on load
