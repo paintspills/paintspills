@@ -1347,11 +1347,15 @@
                 <button class="ctrl-btn" onclick="downloadJSON()" style="font-size:10px; padding:6px 4px;">Save Project</button>
                 <button class="ctrl-btn" onclick="document.getElementById('json-upload').click()" style="font-size:10px; padding:6px 4px;">Load Project</button>
             </div>
+            <div style="margin-bottom:5px;">
+                <button class="ctrl-btn w-full" onclick="document.getElementById('json-append').click()" style="font-size:10px; padding:6px 4px;">&#x2B; Append Project</button>
+            </div>
             <div class="btn-grid-2" style="gap:5px;">
                 <button class="ctrl-btn" onclick="exportImages()" style="font-size:10px; padding:6px 4px;">Export Images</button>
                 <button class="ctrl-btn gold" onclick="exportVideo()" style="font-size:10px; padding:6px 4px;">Export Video</button>
             </div>
             <input type="file" id="json-upload" accept=".json" style="display:none;" onchange="uploadJSON(event)">
+            <input type="file" id="json-append" accept=".json" style="display:none;" onchange="appendJSON(event)">
         </div>
     </div><!-- /x-sheet -->
 
@@ -2611,6 +2615,7 @@
             take:   document.getElementById('meta-take').value,
             mirror: meta.mirror ?? mirrorMode,
             chroma: meta.chroma ?? (document.getElementById('chroma-toggle').checked || (maskPixels && maskPixels.some(v=>v>0))),
+            bg:     document.getElementById('bg-name').textContent || 'None',
         };
         // Insert after current frame when mid-sequence; otherwise append to end
         const insertAt = (currentFrameIdx >= 0 && currentFrameIdx < frames.length - 1)
@@ -2657,7 +2662,8 @@
                     if (resolved === files.length) {
                         const scene = document.getElementById('meta-scene').value;
                         const take  = document.getElementById('meta-take').value;
-                        const newFrames = results.map(data => ({ data, hold: 1, scene, take, mirror: false, chroma: false }));
+                        const bg    = document.getElementById('bg-name').textContent || 'None';
+                        const newFrames = results.map(data => ({ data, hold: 1, scene, take, mirror: false, chroma: false, bg }));
                         frames.splice(insertAt, 0, ...newFrames);
                         renderUI();
                         scrubTo(insertAt + files.length - 1);
@@ -3509,6 +3515,28 @@
             renderUI(); scrubTo(frames.length - 1);
         };
         reader.readAsText(e.target.files[0]);
+    }
+    function appendJSON(e) {
+        const reader = new FileReader();
+        reader.onload = ev => {
+            const data = JSON.parse(ev.target.result);
+            if (!data.frames || !data.frames.length) {
+                document.getElementById('status-msg').textContent = 'No frames found in that project file.';
+                return;
+            }
+            const insertAt = (currentFrameIdx >= 0 && currentFrameIdx < frames.length - 1)
+                ? currentFrameIdx + 1
+                : frames.length;
+            frames.splice(insertAt, 0, ...data.frames);
+            videoTracks[0].frames = frames;
+            selectedIndices.clear();
+            renderUI();
+            scrubTo(insertAt + data.frames.length - 1);
+            document.getElementById('status-msg').textContent =
+                `Appended ${data.frames.length} frames from "${e.target.files[0].name}"`;
+        };
+        reader.readAsText(e.target.files[0]);
+        e.target.value = '';
     }
     async function exportImages() {
         if (!frames.length) { alert('No frames to export.'); return; }
