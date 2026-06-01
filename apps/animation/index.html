@@ -3590,6 +3590,7 @@
                 scene:   document.getElementById('meta-scene').value,
                 take:    document.getElementById('meta-take').value,
             },
+            pxPerHold: PX_PER_HOLD,
             maskData,
             frames,
             soundTracks: savedSoundTracks,
@@ -3674,6 +3675,17 @@
                 // Keep trackIdSeq ahead of any restored IDs
                 const maxTrackId = data.soundTracks.reduce((m, t) => Math.max(m, t.id), 0);
                 trackIdSeq = Math.max(trackIdSeq, maxTrackId + 1);
+
+                // Rescale clip pixel positions if the saved zoom differs from current
+                if (data.pxPerHold && data.pxPerHold !== PX_PER_HOLD) {
+                    const ratio = PX_PER_HOLD / data.pxPerHold;
+                    soundTracks.forEach(st => st.clips.forEach(clip => {
+                        clip.startPx     = Math.round(clip.startPx     * ratio);
+                        clip.widthPx     = Math.round(clip.widthPx     * ratio);
+                        clip.trimStartPx = Math.round(clip.trimStartPx * ratio);
+                        clip.fullWidthPx = Math.round(clip.fullWidthPx * ratio);
+                    }));
+                }
             }
 
             selectedIndices.clear();
