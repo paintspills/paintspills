@@ -4794,8 +4794,19 @@
     // ── Timeline Zoom & Scroll ──
     function tlZoomApply(sliderVal) {
         // Map slider 1-10 to PX_BASE-PX_MAX with a slight curve
+        const oldPPH = PX_PER_HOLD;
         const t = (sliderVal - 1) / 9;
         PX_PER_HOLD = Math.round(PX_BASE + t * t * (PX_MAX - PX_BASE));
+        // Rescale all clip pixel positions so they stay locked to their frames
+        if (oldPPH !== PX_PER_HOLD && oldPPH > 0) {
+            const ratio = PX_PER_HOLD / oldPPH;
+            soundTracks.forEach(st => st.clips.forEach(clip => {
+                clip.startPx     = Math.round(clip.startPx     * ratio);
+                clip.widthPx     = Math.round(clip.widthPx     * ratio);
+                clip.trimStartPx = Math.round(clip.trimStartPx * ratio);
+                clip.fullWidthPx = Math.round(clip.fullWidthPx * ratio);
+            }));
+        }
         document.getElementById('tl-zoom-val').textContent = parseFloat(sliderVal).toFixed(2).replace(/\.?0+$/, '') + '×';
         renderUI();
         tlUpdateScrollSlider();
