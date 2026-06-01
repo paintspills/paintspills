@@ -3544,11 +3544,46 @@
     }
 
     // ── Project data ──
-    function downloadJSON() {
+    async function downloadJSON() {
+        const statusEl = document.getElementById('status-msg');
+        statusEl.textContent = 'Saving…';
         const baseName = buildBaseName();
         const maskData = maskPixels && maskPixels.some(v=>v>0)
             ? btoa(String.fromCharCode(...maskPixels))
             : null;
+
+        // Serialize sound tracks — convert each clip's blob URL to a base64 data URL
+        const savedSoundTracks = await Promise.all(soundTracks.map(async st => ({
+            id:   st.id,
+            name: st.name,
+            clips: await Promise.all(st.clips.map(async clip => {
+                let audioData = null;
+                if (clip.audioUrl) {
+                    try {
+                        const res  = await fetch(clip.audioUrl);
+                        const blob = await res.blob();
+                        audioData  = await new Promise(resolve => {
+                            const fr = new FileReader();
+                            fr.onloadend = () => resolve(fr.result);
+                            fr.readAsDataURL(blob);
+                        });
+                    } catch(e) { /* skip if fetch fails */ }
+                }
+                return {
+                    id:          clip.id,
+                    fileName:    clip.fileName,
+                    startPx:     clip.startPx,
+                    widthPx:     clip.widthPx,
+                    trimStartPx: clip.trimStartPx,
+                    fullWidthPx: clip.fullWidthPx,
+                    muted:       clip.muted,
+                    volume:      clip.volume ?? 1,
+                    color:       clip.color,
+                    audioData,
+                };
+            }))
+        })));
+
         const data = {
             metadata: {
                 project: document.getElementById('meta-project').value,
@@ -3556,18 +3591,23 @@
                 take:    document.getElementById('meta-take').value,
             },
             maskData,
-            frames
+            frames,
+            soundTracks: savedSoundTracks,
         };
         const blob = new Blob([JSON.stringify(data)], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
         a.download = `${baseName}.json`;
         a.click();
+        statusEl.textContent = 'Project saved.';
     }
+
     function uploadJSON(e) {
         const reader = new FileReader();
-        reader.onload = ev => {
+        reader.onload = async ev => {
             pushUndo();
+            const statusEl = document.getElementById('status-msg');
+            statusEl.textContent = 'Loading…';
             const data = JSON.parse(ev.target.result);
             if (data.metadata) {
                 if (data.metadata.project) document.getElementById('meta-project').value = data.metadata.project;
@@ -3578,12 +3618,7 @@
                 const bin = atob(data.maskData);
                 maskPixels = new Uint8Array(bin.length);
                 for (let i = 0; i < bin.length; i++) maskPixels[i] = bin.charCodeAt(i);
-                // Apply to canvas once camera is ready (defer)
-                setTimeout(() => {
-                    initMaskPixels();
-                    renderMaskCanvas();
-                    maskCanvas.style.display = 'block';
-                }, 300);
+                setTimeout(() => { initMaskPixels(); renderMaskCanvas(); maskCanvas.style.display = 'block'; }, 300);
             } else {
                 maskPixels = null;
                 maskCtx.clearRect(0, 0, maskCanvas.width, maskCanvas.height);
@@ -3591,8 +3626,60 @@
             }
             frames = data.frames;
             videoTracks[0].frames = frames;
+
+            // Restore sound tracks if present
+            if (data.soundTracks && data.soundTracks.length) {
+                // Stop and clear existing clips
+                soundTracks.forEach(st => st.clips.forEach(c => { if (c.audio) { c.audio.pause(); c.audio.src = ''; } }));
+                soundTracks = data.soundTracks.map(st => ({ id: st.id, name: st.name, clips: [] }));
+
+                for (let ti = 0; ti < data.soundTracks.length; ti++) {
+                    const savedTrack = data.soundTracks[ti];
+                    const track      = soundTracks[ti];
+                    for (const sc of savedTrack.clips) {
+                        if (!sc.audioData) continue;
+                        statusEl.textContent = `Restoring audio: ${sc.fileName}…`;
+                        try {
+                            const res      = await fetch(sc.audioData);
+                            const blob     = await res.blob();
+                            const audioUrl = URL.createObjectURL(blob);
+                            const clip = {
+                                id:          sc.id,
+                                fileName:    sc.fileName,
+                                audioUrl,
+                                buffer:      null,
+                                audio:       new Audio(),
+                                startPx:     sc.startPx,
+                                widthPx:     sc.widthPx,
+                                trimStartPx: sc.trimStartPx,
+                                fullWidthPx: sc.fullWidthPx,
+                                muted:       sc.muted  || false,
+                                volume:      sc.volume ?? 1,
+                                color:       sc.color  || CLIP_COLORS[sndClipIdSeq % CLIP_COLORS.length],
+                            };
+                            clip.audio.src = audioUrl;
+                            // Decode buffer for waveform
+                            try {
+                                if (!soundAudioCtx) soundAudioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                                const arrayBuf = await blob.arrayBuffer();
+                                clip.buffer = await soundAudioCtx.decodeAudioData(arrayBuf);
+                            } catch(e) { /* waveform unavailable but playback still works */ }
+                            track.clips.push(clip);
+                            sndClipIdSeq = Math.max(sndClipIdSeq, sc.id);
+                        } catch(e) {
+                            statusEl.textContent = `Could not restore audio: ${sc.fileName}`;
+                        }
+                    }
+                }
+                // Keep trackIdSeq ahead of any restored IDs
+                const maxTrackId = data.soundTracks.reduce((m, t) => Math.max(m, t.id), 0);
+                trackIdSeq = Math.max(trackIdSeq, maxTrackId + 1);
+            }
+
             selectedIndices.clear();
-            renderUI(); scrubTo(frames.length - 1);
+            renderUI();
+            scrubTo(frames.length - 1);
+            statusEl.textContent = 'Project loaded.';
         };
         reader.readAsText(e.target.files[0]);
     }
