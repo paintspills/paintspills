@@ -965,23 +965,46 @@ const laserCtx = laserCanvas.getContext('2d');
 let laserAnimFrame = null;
 let laserDots = [];
 
+const LASER_MAX_AGE = 26;
+
 function laserDraw(x, y) {
     laserDots.push({ x, y, age: 0 });
-    if (laserDots.length > 32) laserDots.shift();
+    if (laserDots.length > 40) laserDots.shift();
 }
 function laserAnimate() {
     laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
-    laserDots.forEach(dot => {
-        dot.age++;
-        const alpha = Math.max(0, 1 - dot.age / 22);
-        const radius = 7;
-        const grd = laserCtx.createRadialGradient(dot.x, dot.y, 0, dot.x, dot.y, radius * 3.5);
-        grd.addColorStop(0, `rgba(255,30,30,${alpha * 0.65})`);
+    laserDots.forEach(d => d.age++);
+    laserDots = laserDots.filter(d => d.age < LASER_MAX_AGE);
+
+    // Tapering comet tail: connect recent points with a stroke that
+    // narrows and fades from the current position back to the oldest point.
+    if (laserDots.length > 1) {
+        laserCtx.lineCap = 'round';
+        laserCtx.lineJoin = 'round';
+        const n = laserDots.length;
+        for (let i = 1; i < n; i++) {
+            const p0 = laserDots[i - 1], p1 = laserDots[i];
+            const t = i / (n - 1);  // 0 at the tail's oldest end .. 1 at the head
+            laserCtx.beginPath();
+            laserCtx.moveTo(p0.x, p0.y);
+            laserCtx.lineTo(p1.x, p1.y);
+            laserCtx.strokeStyle = `rgba(255,40,40,${t * t * 0.8})`;
+            laserCtx.lineWidth = 1 + t * 7;
+            laserCtx.stroke();
+        }
+    }
+
+    // Bright core + glow at the current pointer position
+    if (laserDots.length) {
+        const head = laserDots[laserDots.length - 1];
+        const grd = laserCtx.createRadialGradient(head.x, head.y, 0, head.x, head.y, 16);
+        grd.addColorStop(0, 'rgba(255,90,90,0.9)');
+        grd.addColorStop(0.4, 'rgba(255,30,30,0.5)');
         grd.addColorStop(1, 'rgba(255,0,0,0)');
-        laserCtx.beginPath(); laserCtx.arc(dot.x, dot.y, radius * 3.5, 0, Math.PI * 2); laserCtx.fillStyle = grd; laserCtx.fill();
-        laserCtx.beginPath(); laserCtx.arc(dot.x, dot.y, radius, 0, Math.PI * 2); laserCtx.fillStyle = `rgba(255,30,30,${alpha})`; laserCtx.fill();
-    });
-    laserDots = laserDots.filter(d => d.age < 22);
+        laserCtx.beginPath(); laserCtx.arc(head.x, head.y, 16, 0, Math.PI * 2); laserCtx.fillStyle = grd; laserCtx.fill();
+        laserCtx.beginPath(); laserCtx.arc(head.x, head.y, 4.5, 0, Math.PI * 2); laserCtx.fillStyle = 'rgba(255,255,255,0.95)'; laserCtx.fill();
+    }
+
     laserAnimFrame = requestAnimationFrame(laserAnimate);
 }
 function startLaser() {
