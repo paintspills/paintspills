@@ -969,7 +969,10 @@ const LASER_MAX_AGE = 26;
 
 function laserDraw(x, y) {
     laserDots.push({ x, y, age: 0 });
-    if (laserDots.length > 40) laserDots.shift();
+    // Age-based expiry (below) is what actually bounds the tail in normal
+    // use; this is just a safety valve for runaway point counts, so it's
+    // set high enough not to clip a fast stroke's coalesced points early.
+    if (laserDots.length > 150) laserDots.shift();
 }
 function laserAnimate() {
     laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
@@ -978,16 +981,31 @@ function laserAnimate() {
 
     // Tapering comet tail: connect recent points with a stroke that
     // narrows and fades from the current position back to the oldest point.
-    if (laserDots.length > 1) {
+    // Each segment is a quadratic curve through the midpoints on either side
+    // of a raw point (not a straight lineTo between raw points) — that's
+    // what removes the visible "kinks" at every sampled point and reads as
+    // one continuous curve instead of a chain of line segments.
+    const n = laserDots.length;
+    if (n === 2) {
+        const [p0, p1] = laserDots;
+        laserCtx.lineCap = 'round';
+        laserCtx.beginPath();
+        laserCtx.moveTo(p0.x, p0.y);
+        laserCtx.lineTo(p1.x, p1.y);
+        laserCtx.strokeStyle = 'rgba(255,40,40,0.8)';
+        laserCtx.lineWidth = 8;
+        laserCtx.stroke();
+    } else if (n > 2) {
         laserCtx.lineCap = 'round';
         laserCtx.lineJoin = 'round';
-        const n = laserDots.length;
-        for (let i = 1; i < n; i++) {
-            const p0 = laserDots[i - 1], p1 = laserDots[i];
-            const t = i / (n - 1);  // 0 at the tail's oldest end .. 1 at the head
+        for (let i = 1; i < n - 1; i++) {
+            const p0 = laserDots[i - 1], p1 = laserDots[i], p2 = laserDots[i + 1];
+            const midA = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+            const midB = { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+            const t = i / (n - 1);  // 0 near the tail's oldest end .. 1 at the head
             laserCtx.beginPath();
-            laserCtx.moveTo(p0.x, p0.y);
-            laserCtx.lineTo(p1.x, p1.y);
+            laserCtx.moveTo(midA.x, midA.y);
+            laserCtx.quadraticCurveTo(p1.x, p1.y, midB.x, midB.y);
             laserCtx.strokeStyle = `rgba(255,40,40,${t * t * 0.8})`;
             laserCtx.lineWidth = 1 + t * 7;
             laserCtx.stroke();
@@ -1017,10 +1035,17 @@ function stopLaser() {
     laserCtx.clearRect(0, 0, laserCanvas.width, laserCanvas.height);
 }
 fabricCanvas.upperCanvasEl.addEventListener('pointermove', e => {
-    if (state.tool === 'laser') {
-        const rect = laserCanvas.getBoundingClientRect();
-        laserDraw(e.clientX - rect.left, e.clientY - rect.top);
-    }
+    if (state.tool !== 'laser') return;
+    const rect = laserCanvas.getBoundingClientRect();
+    // A fast swipe can move several real screen-pixels between the sparse
+    // pointermove events the browser delivers per animation frame; using
+    // only e.clientX/Y skips straight past the in-between positions, which
+    // is what made the tail look like distinct line segments rather than
+    // the path actually traced. getCoalescedEvents() recovers the finer-
+    // grained samples the OS/browser batched up, when the device reports them.
+    const coalesced = typeof e.getCoalescedEvents === 'function' ? e.getCoalescedEvents() : [];
+    const points = coalesced.length ? coalesced : [e];
+    points.forEach(p => laserDraw(p.clientX - rect.left, p.clientY - rect.top));
 });
 
 /* =============================================================
