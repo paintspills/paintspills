@@ -1,0 +1,1369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Presenter</title>
+  <style>
+    :root{
+      --bg:        #ffffff;
+      --bg-panel:  #f4f5f7;
+      --bg-field:  #ffffff;
+      --stage-bg:  #000000;
+      --text:      #1f2430;
+      --text-dim:  #6b7280;
+      --border:    #ccd0d9;
+      --accent:    #4f46e5;
+      --amber:     #b45309;
+      --danger:    #dc2626;
+      --mono: "Courier New", "Consolas", "Lucida Console", monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      display: flex; height: 100vh; overflow: hidden;
+      background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px;
+    }
+    button, input, select, textarea { font-family: var(--mono); }
+
+    #app { display: flex; width: 100%; height: 100%; position: relative; }
+
+    /* Control Sidebar */
+    #sidebar {
+      width: 340px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      transition: margin-left 0.3s ease;
+      z-index: 10;
+      overflow: hidden;
+    }
+
+    #sidebar.collapsed { margin-left: -340px; }
+
+    /* Sidebar Tabs */
+    .tab-header { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 5px; }
+    .tab-btn {
+      flex: 1; padding: 8px; background: transparent; border: 1px solid transparent; border-bottom: none;
+      color: var(--text-dim); font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
+      cursor: pointer; font-size: 0.8rem;
+    }
+    .tab-btn:hover { color: var(--text); background: rgba(79,70,229,0.06); }
+    .tab-btn.active { color: var(--accent); border-color: var(--border); border-bottom-color: var(--accent); background: rgba(79,70,229,0.06); }
+    .tab-content {
+      display: none; flex-direction: column; gap: 12px; overflow-y: auto;
+      flex: 1; min-height: 0; scrollbar-gutter: stable;
+    }
+    .tab-content.active { display: flex; }
+
+    /* Deck A / Deck B sub-tabs, nested inside the Slide Decks tab */
+    .deck-subtab-header { display: flex; border-bottom: 1px solid var(--border); margin: 2px 0 4px; }
+    .deck-subtab-btn {
+      flex: 1; padding: 6px; background: transparent; border: 1px solid transparent; border-bottom: none;
+      color: var(--text-dim); font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;
+      cursor: pointer; font-size: 0.75rem;
+    }
+    .deck-subtab-btn:hover { color: var(--text); background: rgba(79,70,229,0.06); }
+    .deck-subtab-btn.active { color: var(--accent); border-color: var(--border); background: rgba(79,70,229,0.06); }
+    .deck-subpanel { display: none; flex-direction: column; gap: 12px; min-height: 0; flex: 1; }
+    .deck-subpanel.active { display: flex; }
+
+    .input-group { display: flex; flex-direction: column; gap: 4px; }
+    .input-group label { font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
+    .input-group input, .input-group textarea, .input-group select {
+      padding: 8px; background: var(--bg-field); border: 1px solid var(--border);
+      border-radius: 4px; color: var(--text); font-size: 0.85rem;
+    }
+    .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
+      outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,70,229,0.15);
+    }
+    .input-group textarea { resize: vertical; min-height: 45px; font-family: inherit; }
+
+    .btn-group { display: flex; gap: 8px; }
+    .btn {
+      padding: 10px; border: 1px solid var(--accent); border-radius: 4px; font-weight: bold;
+      letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.8rem;
+      cursor: pointer; background: transparent; color: var(--accent);
+      width: 100%; flex: 0 0 auto;
+    }
+    .btn-group .btn, .data-io .btn { width: auto; flex: 1; }
+    .btn:hover { background: rgba(79,70,229,0.08); }
+    .btn-secondary { border-color: var(--amber); color: var(--amber); }
+    .btn-secondary:hover { background: rgba(180,83,9,0.08); }
+    .btn-cancel { border-color: var(--danger); color: var(--danger); display: none; }
+    .btn-cancel:hover { background: rgba(220,38,38,0.08); }
+
+    .data-io { display: flex; gap: 8px; margin-bottom: 4px; }
+    .data-io .btn { font-size: 0.7rem; padding: 8px; }
+
+    .preset-list {
+      display: flex; flex-direction: column; gap: 0; overflow-y: auto;
+      border: 1px solid var(--border); border-radius: 4px; flex: 1; min-height: 80px;
+    }
+    .preset-item {
+      display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
+      background: transparent; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;
+      color: var(--text);
+    }
+    .preset-item:last-child { border-bottom: none; }
+    .preset-item:hover { background: rgba(79,70,229,0.05); }
+    .preset-item.active { background: rgba(79,70,229,0.1); border-left: 3px solid var(--accent); font-weight: bold; }
+
+    .action-btns { display: flex; gap: 4px; flex-shrink: 0; }
+    .action-btns button {
+      background: transparent; border: 1px solid var(--border); cursor: pointer;
+      font-size: 0.75rem; padding: 2px 5px; border-radius: 3px;
+    }
+    .dup-btn { color: var(--amber); }
+    .dup-btn:hover { border-color: var(--amber); }
+    .edit-btn { color: var(--accent); }
+    .edit-btn:hover { border-color: var(--accent); }
+    .delete-btn { color: var(--danger); }
+    .delete-btn:hover { border-color: var(--danger); }
+
+    h3 { letter-spacing: 0.5px; }
+
+    /* Presentation Main Stage */
+    #stage { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; position: relative; background: var(--bg); }
+
+    #toggle-btn {
+      position: absolute; top: 10px; left: 10px; z-index: 20;
+      background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
+      padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8rem;
+      letter-spacing: 0.5px; text-transform: uppercase;
+    }
+    #toggle-btn:hover { background: rgba(79,70,229,0.06); }
+
+    #module-nav {
+      position: absolute; top: 10px; right: 10px; z-index: 20;
+      display: flex; align-items: center; gap: 4px;
+      background: var(--bg-panel); border: 1px solid var(--border); border-radius: 4px;
+      padding: 6px 8px; font-size: 0.8rem;
+    }
+    #module-nav button {
+      background: transparent; border: 1px solid var(--border); color: var(--text); cursor: pointer;
+      font-weight: bold; font-size: 0.85rem; padding: 4px 8px; border-radius: 3px;
+    }
+    #module-nav button:hover:not(:disabled) { background: rgba(79,70,229,0.08); border-color: var(--accent); }
+    #module-nav button:disabled { color: #c3c7d1; border-color: #e5e7eb; cursor: default; }
+    #swap-deck-btn {
+      color: var(--amber); border-color: var(--border);
+      max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    }
+    #swap-deck-btn:hover:not(:disabled) { background: rgba(180,83,9,0.08); border-color: var(--amber); }
+    #presenter-toggle-btn.nav-on { color: #ffffff; background: var(--accent); border-color: var(--accent); }
+    #presenter-toggle-btn.nav-on:hover { background: var(--accent); }
+    #autofit-toggle-btn.nav-on { color: #ffffff; background: var(--accent); border-color: var(--accent); }
+    #autofit-toggle-btn.nav-on:hover { background: var(--accent); }
+    #current-module-label {
+      color: var(--text); letter-spacing: 0.5px; max-width: 100px; overflow: hidden;
+      text-overflow: ellipsis; white-space: nowrap;
+    }
+
+    #goal-header {
+      min-height: 120px; max-height: 180px; background: var(--bg);
+      display: grid; grid-template-columns: 1fr 1fr;
+      gap: 20px; padding: 12px 540px 12px 120px;
+    }
+
+    .goal-column {
+      background: var(--bg-field); padding: 10px 14px; border: 1px solid var(--border);
+      border-radius: 4px;
+      display: flex; flex-direction: column; justify-content: center; overflow: hidden;
+    }
+    .goal-column h3 { font-size: 0.7rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; flex-shrink: 0; }
+    .goal-column p { font-size: clamp(0.8rem, 1.2vw, 1.1rem); color: var(--text); line-height: 1.3; word-break: break-word; overflow-y: auto; }
+
+    #content-frame-wrap {
+      flex: 1; min-height: 0; min-width: 0; overflow: hidden;
+      display: flex; align-items: center; justify-content: center;
+      background: var(--bg);
+    }
+    #content-frame { display: block; border: none; background: var(--bg); }
+
+    /* thin scrollbars */
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: var(--bg-field); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border: 1px solid var(--bg-field); border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--text-dim); }
+
+    /* ---------------- Presenter/display window mode ----------------
+       Loaded via index.html?present=1 (opened automatically by the
+       "DISPLAY" toggle). Strips all teacher-facing controls so only
+       the goal header + slides remain, for the projector/second screen. */
+    body.presenter-view #sidebar,
+    body.presenter-view #toggle-btn,
+    body.presenter-view #module-nav {
+      display: none !important;
+    }
+    body.presenter-view #goal-header {
+      padding: 12px 20px;
+    }
+    /* The projector/second-screen view goes black so any pillarboxing
+       Google's embed still leaves blends into the backdrop instead of
+       standing out against white. The control window (this same file
+       without ?present=1) stays light — only the popup gets this. */
+    body.presenter-view #stage,
+    body.presenter-view #goal-header,
+    body.presenter-view #content-frame-wrap,
+    body.presenter-view #content-frame {
+      background: var(--stage-bg);
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- Control Sidebar -->
+  <div id="sidebar">
+    <div class="tab-header">
+      <button class="tab-btn active" onclick="switchTab('modules-tab', event)">Modules</button>
+      <button class="tab-btn" onclick="switchTab('decks-tab', event)">Slide Decks</button>
+      <button class="tab-btn" onclick="switchTab('groups-tab', event)">Groups</button>
+    </div>
+
+    <div class="data-io">
+      <button class="btn btn-secondary" onclick="exportData()" title="Download all modules, decks, groups, and bellwork as a JSON backup file">⬇ Export</button>
+      <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()" title="Restore everything from a backup file">⬆ Import</button>
+      <input type="file" id="import-file" accept=".json,application/json" style="display:none" onchange="importData(event)">
+    </div>
+
+    <!-- TAB 1: MODULE BUILDER & LIST -->
+    <div id="modules-tab" class="tab-content active">
+      <h3 id="form-title" style="font-size: 1rem; color: var(--accent);">&gt; Create/Edit Module</h3>
+      <div class="input-group">
+        <label>Module Name</label>
+        <input type="text" id="module-name" placeholder="e.g., Lesson 1">
+      </div>
+      <div class="input-group">
+        <label>Level Up Goal</label>
+        <textarea id="goal-1" placeholder="Enter objective..."></textarea>
+      </div>
+      <div class="input-group">
+        <label>How We Know We Leveled Up</label>
+        <textarea id="goal-2" placeholder="Enter success criteria..."></textarea>
+      </div>
+
+      <div class="input-group">
+        <label>Lecture Deck — Pick or Paste</label>
+        <select id="deck-picker" onchange="pickDeck(this.value)">
+          <option value="">-- Pick from Saved Decks --</option>
+        </select>
+        <input type="text" id="content-url" placeholder="https://docs.google.com/.../embed" style="margin-top: 4px;">
+      </div>
+
+      <div class="btn-group">
+        <button class="btn" id="save-btn" onclick="saveAndSwap()">Swap & Save</button>
+        <button class="btn btn-cancel" id="cancel-btn" onclick="clearForm()">Cancel</button>
+      </div>
+
+      <h3 style="font-size: 0.85rem; color: var(--text-dim); margin-top: 10px; text-transform: uppercase;">Saved Modules</h3>
+      <div class="preset-list" id="preset-list"></div>
+    </div>
+
+    <!-- TAB 2: SLIDE DECK LIBRARY -->
+    <div id="decks-tab" class="tab-content">
+      <h3 style="font-size: 1rem; color: var(--accent);">&gt; Saved Slide Decks</h3>
+
+      <div class="deck-subtab-header">
+        <button class="deck-subtab-btn active" onclick="switchDeckSubtab('deckA-panel', event)">Deck A &middot; Lecture</button>
+        <button class="deck-subtab-btn" onclick="switchDeckSubtab('deckB-panel', event)">Deck B &middot; Bellwork</button>
+      </div>
+
+      <div id="deckA-panel" class="deck-subpanel active">
+        <div class="input-group">
+          <label>Deck Title / Topic</label>
+          <input type="text" id="deck-title-a" placeholder="e.g., Biology Unit 2 Slides">
+        </div>
+        <div class="input-group">
+          <label>Google Slides Embed Link</label>
+          <input type="text" id="deck-url-a" placeholder="https://docs.google.com/.../embed">
+        </div>
+        <button class="btn btn-secondary" onclick="saveDeck('A')">Save to Library</button>
+
+        <div class="input-group" style="margin-top: 10px;">
+          <label>Bulk Add — one per line: "Title | URL" or just the URL</label>
+          <textarea id="bulk-decks-a" placeholder="Lecture Ch.1 | https://docs.google.com/presentation/d/.../edit
+https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></textarea>
+        </div>
+        <button class="btn btn-secondary" onclick="bulkAddDecks('A')">Add All</button>
+
+        <h3 style="font-size: 0.85rem; color: var(--text-dim); margin-top: 10px; text-transform: uppercase;">Deck A Library</h3>
+        <div class="preset-list" id="deck-list-a"></div>
+      </div>
+
+      <div id="deckB-panel" class="deck-subpanel">
+        <div class="input-group">
+          <label>Deck Title / Topic</label>
+          <input type="text" id="deck-title-b" placeholder="e.g., Monday Warm-Up">
+        </div>
+        <div class="input-group">
+          <label>Google Slides Embed Link</label>
+          <input type="text" id="deck-url-b" placeholder="https://docs.google.com/.../embed">
+        </div>
+        <button class="btn btn-secondary" onclick="saveDeck('B')">Save to Library</button>
+
+        <div class="input-group" style="margin-top: 10px;">
+          <label>Bulk Add — one per line: "Title | URL" or just the URL</label>
+          <textarea id="bulk-decks-b" placeholder="Bellwork Week 3 | https://docs.google.com/presentation/d/.../edit
+https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></textarea>
+        </div>
+        <button class="btn btn-secondary" onclick="bulkAddDecks('B')">Add All</button>
+
+        <h3 style="font-size: 0.85rem; color: var(--text-dim); margin-top: 10px; text-transform: uppercase;">Deck B Library — click &#9734; to use one today</h3>
+        <div class="preset-list" id="deck-list-b"></div>
+      </div>
+    </div>
+
+    <!-- TAB 3: LECTURE GROUPS -->
+    <div id="groups-tab" class="tab-content">
+      <h3 id="group-form-title" style="font-size: 1rem; color: var(--accent);">&gt; Create/Edit Group</h3>
+      <div class="input-group">
+        <label>Group Name</label>
+        <input type="text" id="group-name" placeholder="e.g., Bio Unit 3">
+      </div>
+
+      <div class="input-group">
+        <label>Add Module (2&ndash;4, cycle order = add order)</label>
+        <select id="group-module-picker">
+          <option value="">-- Choose a saved module --</option>
+        </select>
+      </div>
+      <button class="btn btn-secondary" onclick="addModuleToGroupStaging()">Add to Group</button>
+
+      <div class="preset-list" id="group-staging-list" style="flex: 0 0 auto; max-height: 130px;"></div>
+
+      <div class="btn-group">
+        <button class="btn" id="group-save-btn" onclick="saveGroup()">Save Group</button>
+        <button class="btn btn-cancel" id="group-cancel-btn" onclick="clearGroupForm()">Cancel</button>
+      </div>
+
+      <h3 style="font-size: 0.85rem; color: var(--text-dim); margin-top: 10px; text-transform: uppercase;">Saved Groups</h3>
+      <div class="preset-list" id="group-list"></div>
+    </div>
+  </div>
+
+  <!-- Main Presentation Area -->
+  <div id="stage">
+    <button id="toggle-btn" onclick="toggleSidebar()" title="Show/hide controls (Tab)">☰ Controls</button>
+
+    <div id="module-nav">
+      <button id="prev-btn" onclick="loadModule(currentIndex-1)" title="Previous module (Left arrow)">◀</button>
+      <span id="current-module-label" title="No module loaded">No module loaded</span>
+      <button id="next-btn" onclick="loadModule(currentIndex+1)" title="Next module (Right arrow)">▶</button>
+      <button id="swap-deck-btn" onclick="swapDeck()" title="Cycle to the next lecture / bellwork (B)">⇄ LECTURE</button>
+      <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (F)">⛶</button>
+      <button id="autofit-toggle-btn" onclick="toggleAutofit()" title="Shrink goal text to fit instead of scrolling">FIT: ON</button>
+      <button id="presenter-toggle-btn" onclick="togglePresenterWindow()" title="Open/close a controls-free display window for your projector or second screen">🖥 DISPLAY: OFF</button>
+    </div>
+
+    <div id="goal-header">
+      <div class="goal-column">
+        <h3>Level Up Goal</h3>
+        <p id="disp-goal-1">Select or add a module to begin</p>
+      </div>
+      <div class="goal-column">
+        <h3>How We Know We Leveled Up</h3>
+        <p id="disp-goal-2">---</p>
+      </div>
+    </div>
+
+    <div id="content-frame-wrap">
+      <iframe id="content-frame" src="about:blank"></iframe>
+    </div>
+  </div>
+
+</div>
+
+  <script>
+    let modules = JSON.parse(localStorage.getItem('classroom_modules_v2')) || [];
+    let decks = JSON.parse(localStorage.getItem('classroom_decks')) || [];
+    let groups = JSON.parse(localStorage.getItem('classroom_lecture_groups')) || [];
+    let sharedBellwork = JSON.parse(localStorage.getItem('classroom_shared_bellwork')) || null;
+
+    let currentIndex = -1;
+    let editingIndex = -1;
+    let activeDeck = 'A'; // 'A' = showing a lecture module, 'B' = showing the shared bellwork
+    let activeGroup = null; // the lecture group currently being cycled, or null for a standalone module
+    let groupCycleIndex = 0; // which member of activeGroup.moduleIds is showing
+    let editingGroupIndex = -1;
+    let groupStagingModuleIds = []; // modules picked so far while building/editing a group
+
+    const isPresenterView = new URLSearchParams(location.search).get('present') === '1';
+
+    // The main (control) window tracks its popped-out display window here.
+    let presenterWin = null;
+    let presenterPoll = null;
+
+    function generateId() {
+      if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+      return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
+    }
+
+    // One-time upgrade for data saved before Groups/shared Bellwork existed:
+    // gives every module a stable id (so groups can reference it), and seeds
+    // the new shared bellwork slot from whichever module had one set, so
+    // existing bellwork configuration doesn't just disappear.
+    function migrateData() {
+      let modulesChanged = false;
+      modules.forEach(mod => {
+        if (!mod.id) {
+          mod.id = generateId();
+          modulesChanged = true;
+        }
+      });
+      if (modulesChanged) {
+        localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
+      }
+
+      if (!sharedBellwork) {
+        const seedMod = modules.find(m => m.contentUrlB);
+        if (seedMod) {
+          const matchingDeck = decks.find(d => d.url === seedMod.contentUrlB);
+          sharedBellwork = { title: matchingDeck ? matchingDeck.title : 'Bellwork', url: seedMod.contentUrlB };
+          localStorage.setItem('classroom_shared_bellwork', JSON.stringify(sharedBellwork));
+        }
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[c]));
+    }
+
+    function switchTab(tabId, event) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+      event.target.classList.add('active');
+      document.getElementById(tabId).classList.add('active');
+    }
+
+    function toggleSidebar() {
+      document.getElementById('sidebar').classList.toggle('collapsed');
+    }
+
+    // Google's Slides embed pillarboxes in black whenever its iframe box is
+    // wider/taller than the deck's own aspect ratio — and that's cross-origin
+    // content, so we can't recolor those bars directly. Instead we size the
+    // iframe itself to match the deck's shape, so Google never has empty
+    // space to fill; any leftover gutter is just our own page background.
+    // Most decks share one shape — change this if yours are the older
+    // "Standard" 4:3 size instead of "Widescreen" 16:9 (check any deck's
+    // File > Page setup in Google Slides to confirm).
+    const SLIDE_ASPECT_RATIO = 16 / 9;
+    // Even with rm=minimal, Google's embed can leave a thin, sometimes
+    // uneven sliver on an edge or two rather than a clean symmetric gap —
+    // so instead of fitting the frame exactly to the wrap, size it slightly
+    // *larger* and let the wrap's overflow:hidden clip the excess evenly.
+    // Any remaining gap means this needs to go up a bit; visible cropping
+    // of your slide's edges means it can come back down.
+    const SLIDE_OVERSCAN = 1.0;
+
+    function fitContentFrame() {
+      const wrap = document.getElementById('content-frame-wrap');
+      const frame = document.getElementById('content-frame');
+      if (!wrap || !frame) return;
+
+      const wrapW = wrap.clientWidth;
+      const wrapH = wrap.clientHeight;
+      if (wrapW <= 0 || wrapH <= 0) return;
+
+      let w = wrapW;
+      let h = w / SLIDE_ASPECT_RATIO;
+      if (h > wrapH) {
+        h = wrapH;
+        w = h * SLIDE_ASPECT_RATIO;
+      }
+
+      w *= SLIDE_OVERSCAN;
+      h *= SLIDE_OVERSCAN;
+
+      frame.style.width = Math.ceil(w) + 'px';
+      frame.style.height = Math.ceil(h) + 'px';
+    }
+
+    // Shrinks each goal paragraph's font size just enough that its own text
+    // fits without scrolling — starting from whatever size the CSS clamp()
+    // already picked for the current viewport (never growing past it) and
+    // stepping down until it fits or hits a readability floor, at which
+    // point scrolling takes back over as the fallback. Off by default is
+    // "just use the clamp() size" (today's original behavior). Read by both
+    // the control window and the DISPLAY popup off the same shared setting.
+    function isAutofitEnabled() {
+      return localStorage.getItem('classroom_autofit') !== 'off';
+    }
+    function fitGoalText() {
+      const enabled = isAutofitEnabled();
+      [document.getElementById('disp-goal-1'), document.getElementById('disp-goal-2')].forEach(el => {
+        if (!el) return;
+        el.style.fontSize = '';
+        if (!enabled) return;
+        const maxPx = parseFloat(getComputedStyle(el).fontSize);
+        const minPx = 11;
+        let size = maxPx;
+        el.style.fontSize = size + 'px';
+        let guard = 0;
+        while (el.scrollHeight > el.clientHeight + 1 && size > minPx && guard < 60) {
+          size = Math.max(minPx, size - 1);
+          el.style.fontSize = size + 'px';
+          guard++;
+        }
+      });
+    }
+    function applyAutofitSetting() {
+      const btn = document.getElementById('autofit-toggle-btn');
+      if (btn) {
+        const on = isAutofitEnabled();
+        btn.textContent = on ? 'FIT: ON' : 'FIT: OFF';
+        btn.classList.toggle('nav-on', on);
+      }
+      fitGoalText();
+    }
+    function toggleAutofit() {
+      const on = isAutofitEnabled();
+      localStorage.setItem('classroom_autofit', on ? 'off' : 'on');
+      applyAutofitSetting();
+    }
+
+    function toggleFullscreen() {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen().catch(() => {});
+      } else {
+        document.exitFullscreen();
+      }
+    }
+
+    // --- PRESENTER / DISPLAY WINDOW ---
+    // The projector/second-screen view is this same file, reopened with
+    // ?present=1. CSS hides every teacher control in that mode, leaving
+    // just the goal header + slides. The two windows sync over
+    // localStorage's built-in 'storage' event (fires in *other*
+    // same-origin windows whenever a key changes) — no server needed.
+    function togglePresenterWindow() {
+      if (presenterWin && !presenterWin.closed) {
+        presenterWin.close();
+        presenterWin = null;
+        stopPresenterPoll();
+        updatePresenterBtn();
+        return;
+      }
+
+      const targetUrl = location.href.split('?')[0].split('#')[0] + '?present=1';
+      // Open at the actual screen's size, not a fixed 1280x800 — otherwise
+      // the window just sits smaller than the display with bare desktop
+      // showing around it, which looks identical to a rendering bug but
+      // isn't one. Drag it onto the projector/second screen afterward and
+      // press F for a true borderless fullscreen with no OS chrome at all.
+      const screenW = window.screen.availWidth;
+      const screenH = window.screen.availHeight;
+      presenterWin = window.open(
+        targetUrl,
+        'classroom_presenter_window',
+        `width=${screenW},height=${screenH},left=0,top=0,menubar=no,toolbar=no,location=no,status=no`
+      );
+
+      if (!presenterWin) {
+        alert('The display window was blocked by the browser\'s popup blocker. Please allow popups for this page and try again.');
+        return;
+      }
+
+      updatePresenterBtn();
+      stopPresenterPoll();
+      // Same-origin popups don't reliably fire an event on the opener when
+      // the user manually closes them, so poll .closed to keep the toggle
+      // button's ON/OFF state honest.
+      presenterPoll = setInterval(() => {
+        if (presenterWin && presenterWin.closed) {
+          presenterWin = null;
+          updatePresenterBtn();
+          stopPresenterPoll();
+        }
+      }, 1000);
+    }
+
+    function stopPresenterPoll() {
+      if (presenterPoll) {
+        clearInterval(presenterPoll);
+        presenterPoll = null;
+      }
+    }
+
+    function updatePresenterBtn() {
+      const btn = document.getElementById('presenter-toggle-btn');
+      if (!btn) return;
+      const isOn = !!(presenterWin && !presenterWin.closed);
+      btn.textContent = isOn ? '🖥 DISPLAY: ON' : '🖥 DISPLAY: OFF';
+      btn.classList.toggle('nav-on', isOn);
+    }
+
+    // Renders whichever module's content is "live" right now. Used by the
+    // control window directly, and by the presenter window whenever the
+    // control window's localStorage state changes.
+    function applyLiveState(state) {
+      const g1 = document.getElementById('disp-goal-1');
+      const g2 = document.getElementById('disp-goal-2');
+      const frame = document.getElementById('content-frame');
+      if (state) {
+        g1.innerText = state.g1;
+        g2.innerText = state.g2;
+        frame.src = withMinimalChrome(state.contentUrl);
+      } else {
+        g1.innerText = 'Select or add a module to begin';
+        g2.innerText = '---';
+        frame.src = 'about:blank';
+      }
+      fitContentFrame();
+      fitGoalText();
+    }
+
+    function setLiveState(state) {
+      applyLiveState(state);
+      if (state) {
+        localStorage.setItem('classroom_live_state', JSON.stringify(state));
+      } else {
+        localStorage.removeItem('classroom_live_state');
+      }
+    }
+
+    function cleanUrl(url) {
+      if (!url) return '';
+      if (url.includes('docs.google.com/presentation') && !url.includes('/embed')) {
+        return url.replace(/\/edit.*$/, '/embed');
+      }
+      return url;
+    }
+
+    // Google's Slides embed reserves a thin strip at the bottom for its own
+    // nav-arrows/page-counter/watermark bar. That reservation eats into the
+    // box we size to the deck's own aspect ratio, so it still shows a sliver
+    // of pillarboxing even when the ratio otherwise matches. This removes
+    // that chrome entirely (unofficial but long-standing embed parameter) —
+    // applied here at display time so it self-applies to decks you already
+    // saved, not just new ones.
+    function withMinimalChrome(url) {
+      if (!url || !url.includes('docs.google.com/presentation')) return url;
+      if (/[?&]rm=/.test(url)) return url;
+      return url + (url.includes('?') ? '&' : '?') + 'rm=minimal';
+    }
+
+    // --- DATA IMPORT/EXPORT ---
+    function exportData() {
+      const payload = { modules, decks, groups, sharedBellwork, exportedAt: new Date().toISOString() };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `classroom-presentation-backup-${new Date().toISOString().slice(0, 10)}.json`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function importData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!Array.isArray(data.modules) || !Array.isArray(data.decks)) {
+            throw new Error('File is missing modules/decks arrays.');
+          }
+          const proceed = confirm(
+            `This will replace your current ${modules.length} module(s) and ${decks.length} deck(s) ` +
+            `with ${data.modules.length} module(s) and ${data.decks.length} deck(s) from the file. Continue?`
+          );
+          if (!proceed) return;
+
+          modules = data.modules;
+          decks = data.decks;
+          groups = Array.isArray(data.groups) ? data.groups : [];
+          sharedBellwork = data.sharedBellwork !== undefined ? data.sharedBellwork : null;
+
+          localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
+          localStorage.setItem('classroom_decks', JSON.stringify(decks));
+          localStorage.setItem('classroom_lecture_groups', JSON.stringify(groups));
+          if (sharedBellwork) {
+            localStorage.setItem('classroom_shared_bellwork', JSON.stringify(sharedBellwork));
+          } else {
+            localStorage.removeItem('classroom_shared_bellwork');
+          }
+
+          migrateData(); // in case the backup predates ids/groups entirely
+
+          currentIndex = -1;
+          activeGroup = null;
+          groupCycleIndex = 0;
+          clearForm();
+          clearGroupForm();
+          renderDecks();
+          renderGroups();
+
+          if (modules.length > 0) {
+            loadModule(0);
+          } else {
+            resetDisplay();
+          }
+        } catch (err) {
+          alert('Could not import file: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // --- DECK LIBRARY FUNCTIONS ---
+    function switchDeckSubtab(panelId, event) {
+      document.querySelectorAll('.deck-subtab-btn').forEach(btn => btn.classList.remove('active'));
+      document.querySelectorAll('.deck-subpanel').forEach(panel => panel.classList.remove('active'));
+      event.target.classList.add('active');
+      document.getElementById(panelId).classList.add('active');
+    }
+
+    // Finds an already-saved deck pointing at the same Google Slides file,
+    // so re-running the deck-lister script and re-pasting its whole output
+    // doesn't pile up duplicates. Compares the Slides file ID when the URL
+    // has one (robust to /edit vs /embed, trailing params, etc.), falling
+    // back to an exact URL match otherwise.
+    function findDuplicateDeck(url) {
+      const idMatch = url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+      const id = idMatch ? idMatch[1] : null;
+      return decks.find(d => {
+        if (id) {
+          const dMatch = d.url.match(/\/d\/([a-zA-Z0-9_-]+)/);
+          if (dMatch && dMatch[1] === id) return true;
+        }
+        return d.url === url;
+      });
+    }
+
+    function saveDeck(category) {
+      const suffix = category === 'B' ? '-b' : '-a';
+      const title = document.getElementById('deck-title' + suffix).value || 'Untitled Deck';
+      const url = cleanUrl(document.getElementById('deck-url' + suffix).value);
+
+      if (!url) {
+        alert('Please paste a valid Google Slides embed link.');
+        return;
+      }
+
+      const dupe = findDuplicateDeck(url);
+      if (dupe && !confirm(`This deck looks like it's already saved as "${dupe.title}". Add it again anyway?`)) {
+        return;
+      }
+
+      decks.push({ title, url, category });
+      localStorage.setItem('classroom_decks', JSON.stringify(decks));
+
+      document.getElementById('deck-title' + suffix).value = '';
+      document.getElementById('deck-url' + suffix).value = '';
+
+      renderDecks();
+    }
+
+    // Parses pasted lines into decks. Each line can be "Title | URL",
+    // "Title, URL" (only when the trailing part looks like a URL), or a
+    // bare URL, in which case it gets an auto-numbered placeholder title.
+    function bulkAddDecks(category) {
+      const suffix = category === 'B' ? '-b' : '-a';
+      const raw = document.getElementById('bulk-decks' + suffix).value;
+      const lines = raw.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+
+      if (lines.length === 0) {
+        alert('Paste at least one line with a Slides link.');
+        return;
+      }
+
+      let added = 0;
+      let skipped = 0;
+      let duplicates = 0;
+
+      lines.forEach(line => {
+        let title = '';
+        let urlPart = line;
+
+        const pipeIdx = line.indexOf('|');
+        if (pipeIdx !== -1) {
+          title = line.slice(0, pipeIdx).trim();
+          urlPart = line.slice(pipeIdx + 1).trim();
+        } else {
+          const commaIdx = line.lastIndexOf(',');
+          if (commaIdx !== -1 && /^https?:\/\//i.test(line.slice(commaIdx + 1).trim())) {
+            title = line.slice(0, commaIdx).trim();
+            urlPart = line.slice(commaIdx + 1).trim();
+          }
+        }
+
+        const url = cleanUrl(urlPart.trim());
+        if (!/^https?:\/\//i.test(url)) {
+          skipped++;
+          return;
+        }
+
+        if (findDuplicateDeck(url)) {
+          duplicates++;
+          return;
+        }
+
+        decks.push({ title: title || `Deck ${decks.length + 1}`, url, category });
+        added++;
+      });
+
+      localStorage.setItem('classroom_decks', JSON.stringify(decks));
+      document.getElementById('bulk-decks' + suffix).value = '';
+      renderDecks();
+
+      alert(
+        `Added ${added} deck(s).` +
+        (duplicates > 0 ? ` Skipped ${duplicates} already in your library.` : '') +
+        (skipped > 0 ? ` Skipped ${skipped} line(s) that didn't look like a valid link.` : '')
+      );
+    }
+
+    function deleteDeck(index, event) {
+      event.stopPropagation();
+      if (!confirm(`Delete deck "${decks[index].title}"? This cannot be undone.`)) return;
+      const wasBellwork = sharedBellwork && sharedBellwork.url === decks[index].url;
+      decks.splice(index, 1);
+      localStorage.setItem('classroom_decks', JSON.stringify(decks));
+      if (wasBellwork) {
+        alert('That was set as Today\'s Bellwork — pick another deck to replace it when you\'re ready.');
+      }
+      renderDecks();
+    }
+
+    // Reassigns a deck between Deck A and Deck B without deleting and
+    // re-adding it — mainly for decks saved before this split existed,
+    // which all default to Deck A.
+    function moveDeck(index, event) {
+      event.stopPropagation();
+      const deck = decks[index];
+      deck.category = deck.category === 'B' ? 'A' : 'B';
+      localStorage.setItem('classroom_decks', JSON.stringify(decks));
+      renderDecks();
+    }
+
+    // Sets a Deck B entry as the one shared Bellwork deck, used regardless
+    // of which lecture module or group is currently on screen. Refreshes
+    // the live display immediately if Bellwork happens to be showing now.
+    function useAsBellwork(index, event) {
+      event.stopPropagation();
+      const deck = decks[index];
+      sharedBellwork = { title: deck.title, url: deck.url };
+      localStorage.setItem('classroom_shared_bellwork', JSON.stringify(sharedBellwork));
+      renderDecks();
+      updateSwapBtn();
+      if (activeDeck === 'B') applyActiveDeck();
+    }
+
+    function pickDeck(url) {
+      if (url) document.getElementById('content-url').value = url;
+    }
+
+    function renderDecks() {
+      const listA = document.getElementById('deck-list-a');
+      const listB = document.getElementById('deck-list-b');
+      const picker = document.getElementById('deck-picker');
+
+      listA.innerHTML = '';
+      listB.innerHTML = '';
+      picker.innerHTML = '<option value="">-- Pick from Saved Decks --</option>';
+
+      decks.forEach((deck, index) => {
+        // Decks saved before Deck A/B existed have no category — treat
+        // them as Deck A (Lecture) so nothing goes missing.
+        const isB = deck.category === 'B';
+        const list = isB ? listB : listA;
+        const isActiveBellwork = isB && sharedBellwork && sharedBellwork.url === deck.url;
+
+        const item = document.createElement('div');
+        item.className = `preset-item ${isActiveBellwork ? 'active' : ''}`;
+        const useTodayBtn = isB
+          ? `<button class="dup-btn" onclick="useAsBellwork(${index}, event)" title="${isActiveBellwork ? 'Currently the bellwork deck' : 'Set as the bellwork deck'}">${isActiveBellwork ? '★' : '☆'}</button>`
+          : '';
+        item.innerHTML = `
+          <span>${escapeHtml(deck.title)}</span>
+          <div class="action-btns">
+            ${useTodayBtn}
+            <button class="dup-btn" onclick="moveDeck(${index}, event)" title="Move to Deck ${isB ? 'A' : 'B'}">⇄</button>
+            <button class="delete-btn" onclick="deleteDeck(${index}, event)" title="Delete deck">✕</button>
+          </div>
+        `;
+        list.appendChild(item);
+
+        if (!isB) {
+          const option = document.createElement('option');
+          option.value = deck.url;
+          option.textContent = deck.title;
+          picker.appendChild(option);
+        }
+      });
+    }
+
+    // --- MODULE FUNCTIONS ---
+    function saveAndSwap() {
+      const name = document.getElementById('module-name').value || 'Untitled Module';
+      const g1 = document.getElementById('goal-1').value || 'No level up goal specified';
+      const g2 = document.getElementById('goal-2').value || 'No criteria specified';
+      const contentUrl = cleanUrl(document.getElementById('content-url').value);
+
+      if (!contentUrl) {
+        alert('Please paste or select a valid content slide link.');
+        return;
+      }
+
+      if (editingIndex >= 0) {
+        modules[editingIndex] = { ...modules[editingIndex], name, g1, g2, contentUrl };
+        localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
+        loadModule(editingIndex);
+      } else {
+        modules.push({ id: generateId(), name, g1, g2, contentUrl });
+        localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
+        loadModule(modules.length - 1);
+      }
+
+      clearForm();
+    }
+
+    function editModule(index, event) {
+      event.stopPropagation();
+      editingIndex = index;
+      const mod = modules[index];
+
+      document.getElementById('module-name').value = mod.name;
+      document.getElementById('goal-1').value = mod.g1;
+      document.getElementById('goal-2').value = mod.g2;
+      document.getElementById('content-url').value = mod.contentUrl;
+      document.getElementById('deck-picker').value = mod.contentUrl;
+
+      document.getElementById('form-title').innerHTML = '&gt; Edit Module';
+      document.getElementById('save-btn').innerText = 'Update';
+      document.getElementById('cancel-btn').style.display = 'block';
+
+      switchTab('modules-tab', { target: document.querySelectorAll('.tab-btn')[0] });
+      document.getElementById('sidebar').classList.remove('collapsed');
+    }
+
+    function duplicateModule(index, event) {
+      event.stopPropagation();
+      const copy = { ...modules[index], id: generateId(), name: modules[index].name + ' (Copy)' };
+      modules.splice(index + 1, 0, copy);
+      localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
+      if (currentIndex > index) currentIndex++;
+      renderPresets();
+    }
+
+    function deleteModule(index, event) {
+      event.stopPropagation();
+      if (!confirm(`Delete module "${modules[index].name}"? This cannot be undone.`)) return;
+      const deletedId = modules[index].id;
+      modules.splice(index, 1);
+      localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
+
+      // A group can't usefully exist with fewer than 2 members, so drop it
+      // entirely if removing this module would take it below that.
+      let groupsChanged = false;
+      groups = groups.filter(g => {
+        if (!g.moduleIds.includes(deletedId)) return true;
+        g.moduleIds = g.moduleIds.filter(id => id !== deletedId);
+        groupsChanged = true;
+        if (g.moduleIds.length < 2) {
+          if (activeGroup && activeGroup.id === g.id) {
+            activeGroup = null;
+            groupCycleIndex = 0;
+          }
+          return false;
+        }
+        return true;
+      });
+      if (groupsChanged) {
+        localStorage.setItem('classroom_lecture_groups', JSON.stringify(groups));
+      }
+
+      if (editingIndex === index) clearForm();
+      if (currentIndex >= modules.length) currentIndex = modules.length - 1;
+
+      if (currentIndex >= 0) {
+        loadModule(currentIndex);
+      } else {
+        resetDisplay();
+      }
+    }
+
+    function clearForm() {
+      editingIndex = -1;
+      document.getElementById('module-name').value = '';
+      document.getElementById('goal-1').value = '';
+      document.getElementById('goal-2').value = '';
+      document.getElementById('content-url').value = '';
+      document.getElementById('deck-picker').value = '';
+      document.getElementById('form-title').innerHTML = '&gt; Create/Edit Module';
+      document.getElementById('save-btn').innerText = 'Swap & Save';
+      document.getElementById('cancel-btn').style.display = 'none';
+    }
+
+    function loadModule(index) {
+      if (index < 0 || index >= modules.length) return;
+      currentIndex = index;
+      activeGroup = null;
+      groupCycleIndex = 0;
+      activeDeck = 'A';
+      applyActiveDeck();
+      renderGroups();
+    }
+
+    // Resolves whichever content is currently active — a standalone module,
+    // one member of a lecture group, or the shared bellwork — and pushes it
+    // into the shared live state (control window display + any open
+    // presenter/DISPLAY popup), then keeps the swap button, module list, and
+    // nav buttons all in sync with it.
+    function applyActiveDeck() {
+      let mod;
+      if (activeGroup) {
+        const memberId = activeGroup.moduleIds[groupCycleIndex];
+        mod = modules.find(m => m.id === memberId);
+        if (mod) currentIndex = modules.indexOf(mod);
+      } else {
+        mod = modules[currentIndex];
+      }
+      if (!mod) return;
+
+      const url = (activeDeck === 'B' && sharedBellwork) ? sharedBellwork.url : mod.contentUrl;
+      setLiveState({ name: mod.name, g1: mod.g1, g2: mod.g2, contentUrl: url });
+      updateSwapBtn();
+      renderPresets();
+      updateNav();
+    }
+
+    // Cycles: group member 1 -> 2 (-> 3 -> 4) -> shared Bellwork -> back to
+    // member 1. Standalone (non-grouped) modules just toggle Lecture <->
+    // Bellwork, same as before, now against the shared bellwork slot.
+    function swapDeck() {
+      if (activeGroup) {
+        if (activeDeck === 'A' && groupCycleIndex < activeGroup.moduleIds.length - 1) {
+          groupCycleIndex++;
+        } else if (activeDeck === 'A' && sharedBellwork) {
+          activeDeck = 'B';
+        } else {
+          groupCycleIndex = 0;
+          activeDeck = 'A';
+        }
+      } else {
+        const mod = modules[currentIndex];
+        if (!mod || !sharedBellwork) return;
+        activeDeck = activeDeck === 'B' ? 'A' : 'B';
+      }
+      applyActiveDeck();
+    }
+
+    function updateSwapBtn() {
+      const btn = document.getElementById('swap-deck-btn');
+      if (!btn) return;
+
+      const hasBellwork = !!sharedBellwork;
+      let label, canSwap;
+
+      if (activeGroup) {
+        canSwap = activeGroup.moduleIds.length > 1 || hasBellwork;
+        if (activeDeck === 'B') {
+          label = sharedBellwork.title;
+        } else {
+          const mod = modules.find(m => m.id === activeGroup.moduleIds[groupCycleIndex]);
+          label = mod ? mod.name : 'Lecture';
+        }
+      } else {
+        const mod = modules[currentIndex];
+        canSwap = hasBellwork && !!mod;
+        label = (activeDeck === 'B' && sharedBellwork) ? sharedBellwork.title : (mod ? mod.name : 'Lecture');
+      }
+
+      btn.disabled = !canSwap;
+      btn.textContent = '⇄ ' + label.toUpperCase();
+      btn.title = activeDeck === 'B'
+        ? 'Showing Bellwork — click to cycle back to lecture (B)'
+        : 'Showing ' + label + ' — click to cycle (B)';
+    }
+
+    function resetDisplay() {
+      activeDeck = 'A';
+      activeGroup = null;
+      groupCycleIndex = 0;
+      setLiveState(null);
+      renderPresets();
+      renderGroups();
+      updateNav();
+      updateSwapBtn();
+    }
+
+    function updateNav() {
+      document.getElementById('prev-btn').disabled = currentIndex <= 0;
+      document.getElementById('next-btn').disabled = currentIndex < 0 || currentIndex >= modules.length - 1;
+      const label = document.getElementById('current-module-label');
+      const name = (currentIndex >= 0 && modules[currentIndex]) ? modules[currentIndex].name : 'No module loaded';
+      label.textContent = name;
+      label.title = name;
+    }
+
+    function renderPresets() {
+      const list = document.getElementById('preset-list');
+      list.innerHTML = '';
+      modules.forEach((mod, index) => {
+        const item = document.createElement('div');
+        item.className = `preset-item ${index === currentIndex ? 'active' : ''}`;
+        item.onclick = () => loadModule(index);
+        item.innerHTML = `
+          <span>${index + 1}. ${escapeHtml(mod.name)}</span>
+          <div class="action-btns">
+            <button class="dup-btn" onclick="duplicateModule(${index}, event)" title="Duplicate module">⧉</button>
+            <button class="edit-btn" onclick="editModule(${index}, event)" title="Edit module">✏️</button>
+            <button class="delete-btn" onclick="deleteModule(${index}, event)" title="Delete module">✕</button>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+      renderGroupModulePicker();
+    }
+
+    // --- LECTURE GROUPS ---
+    function renderGroupModulePicker() {
+      const picker = document.getElementById('group-module-picker');
+      if (!picker) return;
+      const current = picker.value;
+      picker.innerHTML = '<option value="">-- Choose a saved module --</option>';
+      modules.forEach(mod => {
+        const opt = document.createElement('option');
+        opt.value = mod.id;
+        opt.textContent = mod.name;
+        picker.appendChild(opt);
+      });
+      picker.value = current;
+    }
+
+    function addModuleToGroupStaging() {
+      const picker = document.getElementById('group-module-picker');
+      const id = picker.value;
+      if (!id) return;
+      if (groupStagingModuleIds.includes(id)) {
+        alert('That module is already in this group.');
+        return;
+      }
+      if (groupStagingModuleIds.length >= 4) {
+        alert('A group can hold at most 4 modules.');
+        return;
+      }
+      groupStagingModuleIds.push(id);
+      picker.value = '';
+      renderGroupStaging();
+    }
+
+    function removeFromGroupStaging(idx, event) {
+      event.stopPropagation();
+      groupStagingModuleIds.splice(idx, 1);
+      renderGroupStaging();
+    }
+
+    function renderGroupStaging() {
+      const list = document.getElementById('group-staging-list');
+      list.innerHTML = '';
+      groupStagingModuleIds.forEach((id, idx) => {
+        const mod = modules.find(m => m.id === id);
+        const item = document.createElement('div');
+        item.className = 'preset-item';
+        item.innerHTML = `
+          <span>${idx + 1}. ${escapeHtml(mod ? mod.name : '(deleted module)')}</span>
+          <div class="action-btns">
+            <button class="delete-btn" onclick="removeFromGroupStaging(${idx}, event)" title="Remove from group">✕</button>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    function saveGroup() {
+      const name = document.getElementById('group-name').value || 'Untitled Group';
+      if (groupStagingModuleIds.length < 2) {
+        alert('A group needs at least 2 modules.');
+        return;
+      }
+
+      if (editingGroupIndex >= 0) {
+        groups[editingGroupIndex] = { ...groups[editingGroupIndex], name, moduleIds: [...groupStagingModuleIds] };
+      } else {
+        groups.push({ id: generateId(), name, moduleIds: [...groupStagingModuleIds] });
+      }
+      localStorage.setItem('classroom_lecture_groups', JSON.stringify(groups));
+      clearGroupForm();
+      renderGroups();
+    }
+
+    function clearGroupForm() {
+      editingGroupIndex = -1;
+      groupStagingModuleIds = [];
+      document.getElementById('group-name').value = '';
+      document.getElementById('group-module-picker').value = '';
+      document.getElementById('group-form-title').innerHTML = '&gt; Create/Edit Group';
+      document.getElementById('group-save-btn').innerText = 'Save Group';
+      document.getElementById('group-cancel-btn').style.display = 'none';
+      renderGroupStaging();
+    }
+
+    function editGroup(index, event) {
+      event.stopPropagation();
+      editingGroupIndex = index;
+      const g = groups[index];
+      document.getElementById('group-name').value = g.name;
+      groupStagingModuleIds = [...g.moduleIds];
+      renderGroupStaging();
+
+      document.getElementById('group-form-title').innerHTML = '&gt; Edit Group';
+      document.getElementById('group-save-btn').innerText = 'Update Group';
+      document.getElementById('group-cancel-btn').style.display = 'block';
+
+      switchTab('groups-tab', { target: document.querySelectorAll('.tab-btn')[2] });
+      document.getElementById('sidebar').classList.remove('collapsed');
+    }
+
+    function deleteGroup(index, event) {
+      event.stopPropagation();
+      if (!confirm(`Delete group "${groups[index].name}"? This cannot be undone.`)) return;
+      const wasActive = activeGroup && activeGroup.id === groups[index].id;
+      if (editingGroupIndex === index) clearGroupForm();
+      groups.splice(index, 1);
+      localStorage.setItem('classroom_lecture_groups', JSON.stringify(groups));
+
+      if (wasActive) {
+        activeGroup = null;
+        groupCycleIndex = 0;
+        activeDeck = 'A';
+        if (currentIndex >= 0 && modules[currentIndex]) {
+          applyActiveDeck();
+        } else {
+          resetDisplay();
+        }
+      }
+      renderGroups();
+    }
+
+    function loadGroup(index) {
+      const g = groups[index];
+      if (!g || g.moduleIds.length === 0) return;
+      activeGroup = g;
+      groupCycleIndex = 0;
+      activeDeck = 'A';
+      applyActiveDeck();
+      renderGroups();
+    }
+
+    function renderGroups() {
+      const list = document.getElementById('group-list');
+      if (!list) return;
+      list.innerHTML = '';
+      groups.forEach((g, index) => {
+        const memberNames = g.moduleIds.map(id => {
+          const mod = modules.find(m => m.id === id);
+          return mod ? mod.name : '(deleted)';
+        }).join(', ');
+        const isActive = activeGroup && activeGroup.id === g.id;
+        const item = document.createElement('div');
+        item.className = `preset-item ${isActive ? 'active' : ''}`;
+        item.onclick = () => loadGroup(index);
+        item.innerHTML = `
+          <span>${escapeHtml(g.name)}<br><span style="opacity:0.7; font-weight: normal;">${escapeHtml(memberNames)}</span></span>
+          <div class="action-btns">
+            <button class="edit-btn" onclick="editGroup(${index}, event)" title="Edit group">✏️</button>
+            <button class="delete-btn" onclick="deleteGroup(${index}, event)" title="Delete group">✕</button>
+          </div>
+        `;
+        list.appendChild(item);
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      // Don't hijack browser/OS shortcuts (Ctrl+F, Cmd+B, Shift+Tab for
+      // reverse accessibility navigation, etc.) — only act on the bare key.
+      if (e.ctrlKey || e.metaKey || e.altKey || e.shiftKey) return;
+
+      if (e.key === 'Tab' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
+
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement.tagName)) return;
+
+      if (e.key.toLowerCase() === 'f') {
+        toggleFullscreen();
+        return;
+      }
+      if (e.key.toLowerCase() === 'b') {
+        swapDeck();
+        return;
+      }
+      if ((e.key === 'ArrowDown' || e.key === 'ArrowRight') && currentIndex < modules.length - 1) loadModule(currentIndex + 1);
+      if ((e.key === 'ArrowUp' || e.key === 'ArrowLeft') && currentIndex > 0) loadModule(currentIndex - 1);
+    });
+
+    // Keep the presenter/display window's content in sync with the control
+    // window's localStorage state, however it was changed.
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'classroom_live_state' && isPresenterView) {
+        applyLiveState(e.newValue ? JSON.parse(e.newValue) : null);
+      }
+      if (e.key === 'classroom_autofit') {
+        applyAutofitSetting();
+      }
+    });
+
+    migrateData();
+    applyAutofitSetting();
+
+    if (isPresenterView) {
+      document.body.classList.add('presenter-view');
+      const stored = localStorage.getItem('classroom_live_state');
+      applyLiveState(stored ? JSON.parse(stored) : null);
+    } else {
+      renderDecks();
+      renderGroups();
+      updateNav();
+      if (modules.length > 0) {
+        loadModule(0);
+      } else {
+        setLiveState(null);
+        updateSwapBtn();
+      }
+    }
+
+    // Re-fit the slide frame whenever its wrapper's box size changes for any
+    // reason — window resize, sidebar collapse/expand, entering fullscreen.
+    const contentFrameWrapEl = document.getElementById('content-frame-wrap');
+    if (window.ResizeObserver) {
+      new ResizeObserver(fitContentFrame).observe(contentFrameWrapEl);
+    } else {
+      window.addEventListener('resize', fitContentFrame);
+      fitContentFrame();
+    }
+    // Same idea for the goal text — its box width changes with the same
+    // events, which changes how much text wraps per line.
+    const goalHeaderEl = document.getElementById('goal-header');
+    if (window.ResizeObserver) {
+      new ResizeObserver(fitGoalText).observe(goalHeaderEl);
+    } else {
+      window.addEventListener('resize', fitGoalText);
+    }
+    // Safety net: if this page's own window was still settling into its
+    // final size when the very first fit ran — very plausible right after
+    // window.open() for the DISPLAY popup — these catch it a moment later
+    // rather than leaving a stale, wrong-sized frame indefinitely.
+    setTimeout(fitContentFrame, 50);
+    setTimeout(fitContentFrame, 300);
+    setTimeout(fitGoalText, 50);
+    setTimeout(fitGoalText, 300);
+  </script>
+</body>
+</html>
