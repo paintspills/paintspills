@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Presenter</title>
+  <title>Presenter 3</title>
   <style>
     :root{
       --bg:        #ffffff;
@@ -230,6 +230,10 @@
       <button class="btn btn-secondary" onclick="document.getElementById('import-file').click()" title="Restore everything from a backup file">⬆ Import</button>
       <input type="file" id="import-file" accept=".json,application/json" style="display:none" onchange="importData(event)">
     </div>
+    <div class="data-io">
+      <button class="btn btn-secondary" onclick="document.getElementById('sync-week-file').click()" title="Load a week exported from Retro Weekly Lesson Planner v3 — updates each matching module's day-by-day content and this week's bellwork, without touching Groups or the Deck Library">🔄 Sync Week</button>
+      <input type="file" id="sync-week-file" accept=".json,application/json" style="display:none" onchange="syncWeekData(event)">
+    </div>
 
     <!-- TAB 1: MODULE BUILDER & LIST -->
     <div id="modules-tab" class="tab-content active">
@@ -383,6 +387,11 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     let decks = JSON.parse(localStorage.getItem('classroom_decks')) || [];
     let groups = JSON.parse(localStorage.getItem('classroom_lecture_groups')) || [];
     let sharedBellwork = JSON.parse(localStorage.getItem('classroom_shared_bellwork')) || null;
+    // Day-keyed bellwork from a planner Sync Week — takes priority over the
+    // flat sharedBellwork above when present. Starring a deck by hand (see
+    // useAsBellwork) clears this, so a manual choice always wins going
+    // forward until the next Sync.
+    let sharedBellworkByDay = JSON.parse(localStorage.getItem('classroom_shared_bellwork_by_day')) || null;
 
     let currentIndex = -1;
     let editingIndex = -1;
@@ -427,6 +436,49 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
           localStorage.setItem('classroom_shared_bellwork', JSON.stringify(sharedBellwork));
         }
       }
+    }
+
+    // --- DAY-OF-WEEK RESOLUTION (v3) ---
+    // A module or shared bellwork gains this once it's been through a
+    // planner Sync Week; anything hand-built through the sidebar form
+    // never has it and behaves exactly as it always has (see the resolve*
+    // helpers below, which all fall back to the flat fields when there's
+    // no day-table at all).
+    const DAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri'];
+    function getTodayKey() {
+      const jsDay = new Date().getDay(); // 0=Sun..6=Sat
+      const idx = jsDay - 1; // Mon=0..Fri=4
+      return (idx >= 0 && idx <= 4) ? DAY_KEYS[idx] : null; // null on Sat/Sun
+    }
+
+    // {contentUrl, g1, g2} for "right now" — from today's slot in
+    // contentByDay if the module has one, else the module's own flat
+    // fields. A day-synced module with nothing resolved yet for today
+    // (before this week's first LINK:, or a weekend) comes back null.
+    function resolveModuleToday(mod) {
+      if (!mod) return null;
+      if (mod.contentByDay) {
+        const todayKey = getTodayKey();
+        const slot = todayKey ? mod.contentByDay[todayKey] : null;
+        return slot || null;
+      }
+      return { contentUrl: mod.contentUrl, g1: mod.g1, g2: mod.g2 };
+    }
+
+    // {title, url} for today's bellwork — the day-table takes priority
+    // over the flat sharedBellwork when one exists at all (see the note
+    // by the sharedBellworkByDay declaration above).
+    function resolveBellwork() {
+      if (sharedBellworkByDay) {
+        const todayKey = getTodayKey();
+        const slot = todayKey ? sharedBellworkByDay[todayKey] : null;
+        return slot || null;
+      }
+      return sharedBellwork || null;
+    }
+
+    function hasBellworkConfigured() {
+      return !!sharedBellworkByDay || !!sharedBellwork;
     }
 
     function escapeHtml(str) {
@@ -653,7 +705,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
 
     // --- DATA IMPORT/EXPORT ---
     function exportData() {
-      const payload = { modules, decks, groups, sharedBellwork, exportedAt: new Date().toISOString() };
+      const payload = { modules, decks, groups, sharedBellwork, sharedBellworkByDay, exportedAt: new Date().toISOString() };
       const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -684,6 +736,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
           decks = data.decks;
           groups = Array.isArray(data.groups) ? data.groups : [];
           sharedBellwork = data.sharedBellwork !== undefined ? data.sharedBellwork : null;
+          sharedBellworkByDay = data.sharedBellworkByDay !== undefined ? data.sharedBellworkByDay : null;
 
           localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
           localStorage.setItem('classroom_decks', JSON.stringify(decks));
@@ -692,6 +745,11 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
             localStorage.setItem('classroom_shared_bellwork', JSON.stringify(sharedBellwork));
           } else {
             localStorage.removeItem('classroom_shared_bellwork');
+          }
+          if (sharedBellworkByDay) {
+            localStorage.setItem('classroom_shared_bellwork_by_day', JSON.stringify(sharedBellworkByDay));
+          } else {
+            localStorage.removeItem('classroom_shared_bellwork_by_day');
           }
 
           migrateData(); // in case the backup predates ids/groups entirely
@@ -711,6 +769,75 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
           }
         } catch (err) {
           alert('Could not import file: ' + err.message);
+        } finally {
+          event.target.value = '';
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Merge-style import from Retro Weekly Lesson Planner v3's "EXPORT WEEK
+    // FOR PRESENTER" — unlike Import above, this never touches Groups or
+    // the Deck Library. Modules are matched by name (case-insensitive):
+    // an existing module keeps its id (and any Group membership) and just
+    // gets its contentByDay replaced; a name with no matching module gets
+    // a brand-new module created for it.
+    function syncWeekData(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = () => {
+        try {
+          const data = JSON.parse(reader.result);
+          if (!data.syncWeek || !Array.isArray(data.modules)) {
+            throw new Error('File does not look like a Presenter Sync Week export.');
+          }
+
+          const proceed = confirm(
+            `Sync "${data.weekLabel || 'this week'}"? This updates the day-by-day content of ` +
+            `${data.modules.length} matching/new module(s) and this week's bellwork. ` +
+            `Groups and the Deck Library are left alone. Continue?`
+          );
+          if (!proceed) return;
+
+          let created = 0, updated = 0;
+          data.modules.forEach(entry => {
+            const name = (entry.name || 'Untitled').trim();
+            const mod = modules.find(m => m.name.trim().toLowerCase() === name.toLowerCase());
+            if (mod) {
+              mod.contentByDay = entry.contentByDay;
+              updated++;
+            } else {
+              modules.push({ id: generateId(), name, contentByDay: entry.contentByDay });
+              created++;
+            }
+          });
+          localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
+
+          let bellworkSynced = false;
+          if (data.sharedBellworkByDay) {
+            sharedBellworkByDay = data.sharedBellworkByDay;
+            localStorage.setItem('classroom_shared_bellwork_by_day', JSON.stringify(sharedBellworkByDay));
+            bellworkSynced = true;
+          }
+
+          renderPresets();
+          renderGroups();
+          if (currentIndex >= 0 && modules[currentIndex]) {
+            applyActiveDeck();
+          } else if (modules.length > 0) {
+            loadModule(0);
+          } else {
+            updateSwapBtn();
+          }
+
+          alert(
+            `Synced: ${created} new module(s), ${updated} existing module(s) updated.` +
+            (bellworkSynced ? ' Bellwork updated.' : ' No bellwork data in this file.')
+          );
+        } catch (err) {
+          alert('Could not sync week: ' + err.message);
         } finally {
           event.target.value = '';
         }
@@ -856,7 +983,9 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       event.stopPropagation();
       const deck = decks[index];
       sharedBellwork = { title: deck.title, url: deck.url };
+      sharedBellworkByDay = null; // manual choice overrides any Sync'd day-table
       localStorage.setItem('classroom_shared_bellwork', JSON.stringify(sharedBellwork));
+      localStorage.removeItem('classroom_shared_bellwork_by_day');
       renderDecks();
       updateSwapBtn();
       if (activeDeck === 'B') applyActiveDeck();
@@ -919,7 +1048,10 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       }
 
       if (editingIndex >= 0) {
-        modules[editingIndex] = { ...modules[editingIndex], name, g1, g2, contentUrl };
+        // Hand-editing always writes flat fields and clears contentByDay
+        // (if any) — a manual save opts this module out of day-sync until
+        // the next Sync Week re-adds it.
+        modules[editingIndex] = { ...modules[editingIndex], name, g1, g2, contentUrl, contentByDay: undefined };
         localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
         loadModule(editingIndex);
       } else {
@@ -936,11 +1068,19 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       editingIndex = index;
       const mod = modules[index];
 
+      // A module synced in from the planner may have no flat g1/g2/
+      // contentUrl at all (only contentByDay) — seed the form with
+      // today's resolved values instead so nothing shows up "undefined".
+      // Saving from here always writes flat fields and drops
+      // contentByDay (see saveAndSwap) — hand-editing a module opts it
+      // out of day-sync until the next Sync Week re-adds it.
+      const seed = mod.contentByDay ? (resolveModuleToday(mod) || { contentUrl: '', g1: '', g2: '' }) : mod;
+
       document.getElementById('module-name').value = mod.name;
-      document.getElementById('goal-1').value = mod.g1;
-      document.getElementById('goal-2').value = mod.g2;
-      document.getElementById('content-url').value = mod.contentUrl;
-      document.getElementById('deck-picker').value = mod.contentUrl;
+      document.getElementById('goal-1').value = seed.g1 || '';
+      document.getElementById('goal-2').value = seed.g2 || '';
+      document.getElementById('content-url').value = seed.contentUrl || '';
+      document.getElementById('deck-picker').value = seed.contentUrl || '';
 
       document.getElementById('form-title').innerHTML = '&gt; Edit Module';
       document.getElementById('save-btn').innerText = 'Update';
@@ -1034,8 +1174,23 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       }
       if (!mod) return;
 
-      const url = (activeDeck === 'B' && sharedBellwork) ? sharedBellwork.url : mod.contentUrl;
-      setLiveState({ name: mod.name, g1: mod.g1, g2: mod.g2, contentUrl: url });
+      // Goals always reflect this module, regardless of which deck is
+      // showing (bellwork never carries its own goal text) — matches the
+      // existing convention, just now resolved against today for a
+      // day-synced module instead of always reading its flat fields.
+      const todayContent = resolveModuleToday(mod);
+      const g1 = todayContent ? todayContent.g1 : 'No lecture configured for today';
+      const g2 = todayContent ? todayContent.g2 : '—';
+
+      let url;
+      if (activeDeck === 'B') {
+        const bw = resolveBellwork();
+        url = bw ? bw.url : null;
+      } else {
+        url = todayContent ? todayContent.contentUrl : null;
+      }
+
+      setLiveState({ name: mod.name, g1, g2, contentUrl: url || 'about:blank' });
       updateSwapBtn();
       renderPresets();
       updateNav();
@@ -1048,7 +1203,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       if (activeGroup) {
         if (activeDeck === 'A' && groupCycleIndex < activeGroup.moduleIds.length - 1) {
           groupCycleIndex++;
-        } else if (activeDeck === 'A' && sharedBellwork) {
+        } else if (activeDeck === 'A' && hasBellworkConfigured()) {
           activeDeck = 'B';
         } else {
           groupCycleIndex = 0;
@@ -1056,7 +1211,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
         }
       } else {
         const mod = modules[currentIndex];
-        if (!mod || !sharedBellwork) return;
+        if (!mod || !hasBellworkConfigured()) return;
         activeDeck = activeDeck === 'B' ? 'A' : 'B';
       }
       applyActiveDeck();
@@ -1066,13 +1221,14 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       const btn = document.getElementById('swap-deck-btn');
       if (!btn) return;
 
-      const hasBellwork = !!sharedBellwork;
+      const hasBellwork = hasBellworkConfigured();
       let label, canSwap;
 
       if (activeGroup) {
         canSwap = activeGroup.moduleIds.length > 1 || hasBellwork;
         if (activeDeck === 'B') {
-          label = sharedBellwork.title;
+          const bw = resolveBellwork();
+          label = bw ? bw.title : 'Bellwork';
         } else {
           const mod = modules.find(m => m.id === activeGroup.moduleIds[groupCycleIndex]);
           label = mod ? mod.name : 'Lecture';
@@ -1080,7 +1236,12 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       } else {
         const mod = modules[currentIndex];
         canSwap = hasBellwork && !!mod;
-        label = (activeDeck === 'B' && sharedBellwork) ? sharedBellwork.title : (mod ? mod.name : 'Lecture');
+        if (activeDeck === 'B' && hasBellwork) {
+          const bw = resolveBellwork();
+          label = bw ? bw.title : 'Bellwork';
+        } else {
+          label = mod ? mod.name : 'Lecture';
+        }
       }
 
       btn.disabled = !canSwap;
@@ -1117,8 +1278,9 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
         const item = document.createElement('div');
         item.className = `preset-item ${index === currentIndex ? 'active' : ''}`;
         item.onclick = () => loadModule(index);
+        const syncedBadge = mod.contentByDay ? ' <span title="Synced from the planner — content varies by day" style="opacity:0.6;">🔄</span>' : '';
         item.innerHTML = `
-          <span>${index + 1}. ${escapeHtml(mod.name)}</span>
+          <span>${index + 1}. ${escapeHtml(mod.name)}${syncedBadge}</span>
           <div class="action-btns">
             <button class="dup-btn" onclick="duplicateModule(${index}, event)" title="Duplicate module">⧉</button>
             <button class="edit-btn" onclick="editModule(${index}, event)" title="Edit module">✏️</button>
