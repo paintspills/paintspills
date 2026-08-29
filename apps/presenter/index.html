@@ -782,6 +782,31 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     // an existing module keeps its id (and any Group membership) and just
     // gets its contentByDay replaced; a name with no matching module gets
     // a brand-new module created for it.
+    // A synced day-table's links come from whatever the teacher pasted
+    // into the planner's Presenter Link field — likely a plain Slides
+    // share link ending in /edit, same as any manually-typed link here
+    // would need cleanUrl() to become embeddable. Applied once at the
+    // Sync boundary so nothing downstream needs to know the data came
+    // from the planner rather than the sidebar form.
+    function cleanContentByDay(byDay) {
+      if (!byDay) return byDay;
+      const out = {};
+      Object.keys(byDay).forEach(dk => {
+        const slot = byDay[dk];
+        out[dk] = slot ? { ...slot, contentUrl: cleanUrl(slot.contentUrl) } : null;
+      });
+      return out;
+    }
+    function cleanBellworkByDay(byDay) {
+      if (!byDay) return byDay;
+      const out = {};
+      Object.keys(byDay).forEach(dk => {
+        const slot = byDay[dk];
+        out[dk] = slot ? { ...slot, url: cleanUrl(slot.url) } : null;
+      });
+      return out;
+    }
+
     function syncWeekData(event) {
       const file = event.target.files[0];
       if (!file) return;
@@ -804,12 +829,13 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
           let created = 0, updated = 0;
           data.modules.forEach(entry => {
             const name = (entry.name || 'Untitled').trim();
+            const cleanedByDay = cleanContentByDay(entry.contentByDay);
             const mod = modules.find(m => m.name.trim().toLowerCase() === name.toLowerCase());
             if (mod) {
-              mod.contentByDay = entry.contentByDay;
+              mod.contentByDay = cleanedByDay;
               updated++;
             } else {
-              modules.push({ id: generateId(), name, contentByDay: entry.contentByDay });
+              modules.push({ id: generateId(), name, contentByDay: cleanedByDay });
               created++;
             }
           });
@@ -817,7 +843,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
 
           let bellworkSynced = false;
           if (data.sharedBellworkByDay) {
-            sharedBellworkByDay = data.sharedBellworkByDay;
+            sharedBellworkByDay = cleanBellworkByDay(data.sharedBellworkByDay);
             localStorage.setItem('classroom_shared_bellwork_by_day', JSON.stringify(sharedBellworkByDay));
             bellworkSynced = true;
           }
