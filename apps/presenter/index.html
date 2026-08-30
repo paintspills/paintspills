@@ -158,6 +158,13 @@
     #presenter-toggle-btn.nav-on:hover { background: var(--accent); }
     #autofit-toggle-btn.nav-on { color: #ffffff; background: var(--accent); border-color: var(--accent); }
     #autofit-toggle-btn.nav-on:hover { background: var(--accent); }
+    #preview-banner-chip {
+      color: #ffffff; background: var(--danger); font-weight: bold; font-size: 0.68rem;
+      padding: 4px 6px; border-radius: 3px; letter-spacing: 0.5px; text-transform: uppercase;
+      white-space: nowrap;
+    }
+    #preview-day-select { font-size: 0.8rem; padding: 3px 4px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--text); }
+    #preview-day-select.preview-active { border-color: var(--danger); color: var(--danger); font-weight: bold; }
     #current-module-label {
       color: var(--text); letter-spacing: 0.5px; max-width: 100px; overflow: hidden;
       text-overflow: ellipsis; white-space: nowrap;
@@ -362,6 +369,17 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (F)">⛶</button>
       <button id="autofit-toggle-btn" onclick="toggleAutofit()" title="Shrink goal text to fit instead of scrolling">FIT: ON</button>
       <button id="presenter-toggle-btn" onclick="togglePresenterWindow()" title="Open/close a controls-free display window for your projector or second screen">🖥 DISPLAY: OFF</button>
+      <span id="preview-day-group" style="display:flex; align-items:center; gap:4px; margin-left:4px; padding-left:6px; border-left:1px solid var(--border);">
+        <span id="preview-banner-chip" style="display:none;">⚠ PREVIEWING <span id="preview-day-name"></span></span>
+        <select id="preview-day-select" onchange="setPreviewDay(this.value)" title="Preview a day-synced module/bellwork as a different weekday, to confirm a planner Sync worked without waiting for that day to arrive. Resets to Today whenever this page reloads.">
+          <option value="">Today</option>
+          <option value="mon">Mon</option>
+          <option value="tue">Tue</option>
+          <option value="wed">Wed</option>
+          <option value="thu">Thu</option>
+          <option value="fri">Fri</option>
+        </select>
+      </span>
     </div>
 
     <div id="goal-header">
@@ -451,30 +469,83 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       return (idx >= 0 && idx <= 4) ? DAY_KEYS[idx] : null; // null on Sat/Sun
     }
 
-    // {contentUrl, g1, g2} for "right now" — from today's slot in
-    // contentByDay if the module has one, else the module's own flat
-    // fields. A day-synced module with nothing resolved yet for today
-    // (before this week's first LINK:, or a weekend) comes back null.
+    // Lets a teacher check "what would show for Monday?" without waiting
+    // for it to actually be Monday — e.g. confirming a planner Sync Week
+    // over the weekend before class. In-memory only (not localStorage) so
+    // it always resets to the real day on reload — never silently sticks.
+    // See setPreviewDay() below; every day-resolution call site reads
+    // this instead of getTodayKey() directly, so preview affects modules,
+    // bellwork, and the swap-button label uniformly.
+    let previewDayOverride = null;
+    const PREVIEW_DAY_NAMES = { mon: 'MONDAY', tue: 'TUESDAY', wed: 'WEDNESDAY', thu: 'THURSDAY', fri: 'FRIDAY' };
+    function getEffectiveDayKey() {
+      return previewDayOverride || getTodayKey();
+    }
+
+    // {contentUrl, g1, g2} for "right now" — from today's (or the
+    // previewed day's) slot in contentByDay if the module has one, else
+    // the module's own flat fields. A day-synced module with nothing
+    // resolved yet for that day (before this week's first LINK:, or a
+    // real weekend with no preview override) comes back null.
     function resolveModuleToday(mod) {
       if (!mod) return null;
       if (mod.contentByDay) {
-        const todayKey = getTodayKey();
-        const slot = todayKey ? mod.contentByDay[todayKey] : null;
+        const dayKey = getEffectiveDayKey();
+        const slot = dayKey ? mod.contentByDay[dayKey] : null;
         return slot || null;
       }
       return { contentUrl: mod.contentUrl, g1: mod.g1, g2: mod.g2 };
     }
 
-    // {title, url} for today's bellwork — the day-table takes priority
-    // over the flat sharedBellwork when one exists at all (see the note
-    // by the sharedBellworkByDay declaration above).
+    // {title, url} for today's (or the previewed day's) bellwork — the
+    // day-table takes priority over the flat sharedBellwork when one
+    // exists at all (see the note by the sharedBellworkByDay declaration
+    // above).
     function resolveBellwork() {
       if (sharedBellworkByDay) {
-        const todayKey = getTodayKey();
-        const slot = todayKey ? sharedBellworkByDay[todayKey] : null;
+        const dayKey = getEffectiveDayKey();
+        const slot = dayKey ? sharedBellworkByDay[dayKey] : null;
         return slot || null;
       }
       return sharedBellwork || null;
+    }
+
+    // Switches the "effective day" used above. Guards against silently
+    // pushing a preview onto a projector: if the DISPLAY popup is open,
+    // applyActiveDeck()'s setLiveState() call would broadcast the
+    // previewed day to it too (same localStorage pipe as a real swap), so
+    // confirm first rather than surprise whoever's watching that screen.
+    function setPreviewDay(value) {
+      const select = document.getElementById('preview-day-select');
+      const newOverride = value || null;
+      if (newOverride && presenterWin && !presenterWin.closed) {
+        const ok = confirm(
+          'The DISPLAY window is currently open (projector/second screen). ' +
+          'Previewing ' + PREVIEW_DAY_NAMES[newOverride] + ' will show there too, not just in this control window. Continue?'
+        );
+        if (!ok) {
+          select.value = previewDayOverride || '';
+          return;
+        }
+      }
+      previewDayOverride = newOverride;
+      updatePreviewIndicator();
+      applyActiveDeck();
+    }
+
+    function updatePreviewIndicator() {
+      const chip = document.getElementById('preview-banner-chip');
+      const nameEl = document.getElementById('preview-day-name');
+      const select = document.getElementById('preview-day-select');
+      if (!chip || !nameEl || !select) return;
+      if (previewDayOverride) {
+        nameEl.textContent = PREVIEW_DAY_NAMES[previewDayOverride];
+        chip.style.display = 'inline';
+        select.classList.add('preview-active');
+      } else {
+        chip.style.display = 'none';
+        select.classList.remove('preview-active');
+      }
     }
 
     function hasBellworkConfigured() {
@@ -1205,7 +1276,10 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       // existing convention, just now resolved against today for a
       // day-synced module instead of always reading its flat fields.
       const todayContent = resolveModuleToday(mod);
-      const g1 = todayContent ? todayContent.g1 : 'No lecture configured for today';
+      const dayLabel = previewDayOverride
+        ? PREVIEW_DAY_NAMES[previewDayOverride].charAt(0) + PREVIEW_DAY_NAMES[previewDayOverride].slice(1).toLowerCase()
+        : 'today';
+      const g1 = todayContent ? todayContent.g1 : ('No lecture configured for ' + dayLabel);
       const g2 = todayContent ? todayContent.g2 : '—';
 
       let url;
