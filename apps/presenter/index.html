@@ -3,18 +3,29 @@
 <head>
   <meta charset="UTF-8">
   <title>Presenter 3</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Oswald:wght@500;600;700&family=Playfair+Display:wght@700;900&display=swap" rel="stylesheet">
   <style>
     :root{
-      --bg:        #ffffff;
+      --bg:        #f6f0e4;
       --bg-panel:  #f4f5f7;
-      --bg-field:  #ffffff;
-      --stage-bg:  #000000;
-      --text:      #1f2430;
-      --text-dim:  #6b7280;
-      --border:    #ccd0d9;
-      --accent:    #4f46e5;
+      --bg-field:  #fffaf0;
+      --field-text:#2a2015;
+      --stage-bg:  #050403;
+      --text:      #2a2015;
+      --text-dim:  #6b5c46;
+      --border:    #c9b48f;
+      --accent:    #b5762a;
       --amber:     #b45309;
-      --danger:    #dc2626;
+      --danger:    #b3261e;
+      --brass:     #c9a24b;
+      --wood-light:#7a5a3f;
+      --wood-mid:  #5c4030;
+      --wood-dark: #3b2a1e;
+      --font-display: 'Playfair Display', Georgia, 'Times New Roman', serif;
+      --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+      --font-label: 'Oswald', 'Inter', system-ui, sans-serif;
       --mono: "Courier New", "Consolas", "Lucida Console", monospace;
     }
 
@@ -22,17 +33,17 @@
     html, body { height: 100%; }
     body {
       display: flex; height: 100vh; overflow: hidden;
-      background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 14px;
+      background: var(--bg); color: var(--text); font-family: var(--font-sans); font-size: 14px;
     }
-    button, input, select, textarea { font-family: var(--mono); }
+    button, input, select, textarea { font-family: inherit; }
 
     #app { display: flex; width: 100%; height: 100%; position: relative; }
 
-    /* Control Sidebar */
+    /* Control Sidebar — the TV cabinet's wood-grain control panel */
     #sidebar {
       width: 340px;
-      background: var(--bg-panel);
-      border-right: 1px solid var(--border);
+      background: linear-gradient(155deg, var(--wood-light) 0%, var(--wood-mid) 55%, var(--wood-dark) 100%);
+      border-right: 3px solid #1c150d;
       padding: 16px;
       display: flex;
       flex-direction: column;
@@ -40,19 +51,42 @@
       transition: margin-left 0.3s ease;
       z-index: 10;
       overflow: hidden;
+      position: relative;
+      /* Scoped palette override: everything inside the sidebar reads text/
+         border/dim off these instead of the root (cream-page) values, so
+         labels/tabs/headers show light-on-wood without touching any other
+         part of the page. Form fields and list rows opt back OUT of this
+         via --field-text (never overridden) so user data stays dark-on-cream
+         and readable regardless of what the sidebar itself is doing. */
+      --text: #f3e9d8;
+      --text-dim: #cbb99a;
+      --border: rgba(255,255,255,0.18);
+      color: var(--text);
+    }
+    #sidebar::before {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background-image: repeating-linear-gradient(125deg, rgba(0,0,0,0.06) 0px, rgba(0,0,0,0.06) 2px, transparent 2px, transparent 6px);
+      mix-blend-mode: multiply; opacity:0.55;
     }
 
     #sidebar.collapsed { margin-left: -340px; }
+
+    /* Brand plate */
+    #brand-plate { text-align:center; padding:2px 0 10px; border-bottom:1px solid rgba(255,255,255,0.15); }
+    #brand-name { font-family: var(--font-display); font-weight:900; font-size:1.5rem; color:#f3e9d8; letter-spacing:0.5px; }
+    #brand-3 { color: var(--brass); }
+    #brand-tagline { font-family: var(--font-label); font-size:0.58rem; letter-spacing:2.5px; text-transform:uppercase; color:#cbb99a; margin-top:3px; }
+    #brand-site { font-family: var(--font-label); font-size:0.55rem; letter-spacing:1px; color:#8a7a63; margin-top:6px; }
 
     /* Sidebar Tabs */
     .tab-header { display: flex; border-bottom: 1px solid var(--border); margin-bottom: 5px; }
     .tab-btn {
       flex: 1; padding: 8px; background: transparent; border: 1px solid transparent; border-bottom: none;
-      color: var(--text-dim); font-weight: bold; letter-spacing: 1px; text-transform: uppercase;
-      cursor: pointer; font-size: 0.8rem;
+      color: var(--text-dim); font-weight: 600; letter-spacing: 1px; text-transform: uppercase;
+      cursor: pointer; font-size: 0.75rem; font-family: var(--font-label);
     }
-    .tab-btn:hover { color: var(--text); background: rgba(79,70,229,0.06); }
-    .tab-btn.active { color: var(--accent); border-color: var(--border); border-bottom-color: var(--accent); background: rgba(79,70,229,0.06); }
+    .tab-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+    .tab-btn.active { color: var(--brass); border-color: var(--border); border-bottom-color: var(--brass); background: rgba(255,255,255,0.06); }
     .tab-content {
       display: none; flex-direction: column; gap: 12px; overflow-y: auto;
       flex: 1; min-height: 0; scrollbar-gutter: stable;
@@ -63,54 +97,67 @@
     .deck-subtab-header { display: flex; border-bottom: 1px solid var(--border); margin: 2px 0 4px; }
     .deck-subtab-btn {
       flex: 1; padding: 6px; background: transparent; border: 1px solid transparent; border-bottom: none;
-      color: var(--text-dim); font-weight: bold; letter-spacing: 0.5px; text-transform: uppercase;
-      cursor: pointer; font-size: 0.75rem;
+      color: var(--text-dim); font-weight: 600; letter-spacing: 0.5px; text-transform: uppercase;
+      cursor: pointer; font-size: 0.72rem; font-family: var(--font-label);
     }
-    .deck-subtab-btn:hover { color: var(--text); background: rgba(79,70,229,0.06); }
-    .deck-subtab-btn.active { color: var(--accent); border-color: var(--border); background: rgba(79,70,229,0.06); }
+    .deck-subtab-btn:hover { color: var(--text); background: rgba(255,255,255,0.08); }
+    .deck-subtab-btn.active { color: var(--brass); border-color: var(--border); background: rgba(255,255,255,0.06); }
     .deck-subpanel { display: none; flex-direction: column; gap: 12px; min-height: 0; flex: 1; }
     .deck-subpanel.active { display: flex; }
 
     .input-group { display: flex; flex-direction: column; gap: 4px; }
-    .input-group label { font-size: 0.75rem; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; }
+    .input-group label { font-size: 0.7rem; color: var(--text-dim); letter-spacing: 0.5px; text-transform: uppercase; font-family: var(--font-label); }
     .input-group input, .input-group textarea, .input-group select {
       padding: 8px; background: var(--bg-field); border: 1px solid var(--border);
-      border-radius: 4px; color: var(--text); font-size: 0.85rem;
+      border-radius: 4px; color: var(--field-text); font-size: 0.85rem; font-family: var(--font-sans);
     }
     .input-group input:focus, .input-group textarea:focus, .input-group select:focus {
-      outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(79,70,229,0.15);
+      outline: none; border-color: var(--brass); box-shadow: 0 0 0 2px rgba(201,162,75,0.25);
     }
     .input-group textarea { resize: vertical; min-height: 45px; font-family: inherit; }
 
+    /* Source (content type) selector — a decorative knob + a clickable
+       label list, styled after the reference photo's SOURCE dial. The
+       knob's angle is cosmetic; the labels are the actual control. */
+    .source-row { display:flex; gap:10px; align-items:center; background:rgba(0,0,0,0.18); border:1px solid #1c150d; border-radius:8px; padding:10px; }
+    .source-row .knob { width:40px; height:40px; flex-shrink:0; }
+    .source-list { display:flex; flex-direction:column; gap:2px; flex:1; min-width:0; }
+    .source-opt { display:flex; align-items:center; gap:6px; background:transparent; border:none; color:#e7dcc6; font-family:var(--font-label); font-size:0.64rem; letter-spacing:0.5px; text-transform:uppercase; cursor:pointer; padding:3px 5px; border-radius:4px; text-align:left; }
+    .source-opt:hover { background:rgba(255,255,255,0.08); }
+    .source-opt .dot { width:7px; height:7px; border-radius:50%; background:#4a3d2c; box-shadow:inset 0 0 1px rgba(0,0,0,0.6); flex-shrink:0; }
+    .source-opt.active { color:#ffd9a0; font-weight:700; }
+    .source-opt.active .dot { background:#ff9d3d; box-shadow:0 0 6px 1px rgba(255,157,61,0.85); }
+
     .btn-group { display: flex; gap: 8px; }
     .btn {
-      padding: 10px; border: 1px solid var(--accent); border-radius: 4px; font-weight: bold;
-      letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.8rem;
-      cursor: pointer; background: transparent; color: var(--accent);
+      padding: 10px; border: 1px solid var(--accent); border-radius: 4px; font-weight: 700;
+      letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.78rem; font-family: var(--font-label);
+      cursor: pointer; background: transparent; color: var(--brass);
       width: 100%; flex: 0 0 auto;
     }
     .btn-group .btn, .data-io .btn { width: auto; flex: 1; }
-    .btn:hover { background: rgba(79,70,229,0.08); }
+    .btn:hover { background: rgba(201,162,75,0.12); }
     .btn-secondary { border-color: var(--amber); color: var(--amber); }
-    .btn-secondary:hover { background: rgba(180,83,9,0.08); }
-    .btn-cancel { border-color: var(--danger); color: var(--danger); display: none; }
-    .btn-cancel:hover { background: rgba(220,38,38,0.08); }
+    .btn-secondary:hover { background: rgba(180,83,9,0.12); }
+    .btn-cancel { border-color: var(--danger); color: #e07a72; display: none; }
+    .btn-cancel:hover { background: rgba(179,38,30,0.12); }
 
     .data-io { display: flex; gap: 8px; margin-bottom: 4px; }
-    .data-io .btn { font-size: 0.7rem; padding: 8px; }
+    .data-io .btn { font-size: 0.68rem; padding: 8px; }
 
     .preset-list {
       display: flex; flex-direction: column; gap: 0; overflow-y: auto;
-      border: 1px solid var(--border); border-radius: 4px; flex: 1; min-height: 80px;
+      border: 1px solid #1c150d; border-radius: 6px; flex: 1; min-height: 80px;
+      background: rgba(250,244,232,0.95);
     }
     .preset-item {
       display: flex; align-items: center; justify-content: space-between; padding: 8px 10px;
-      background: transparent; border-bottom: 1px solid var(--border); cursor: pointer; font-size: 0.85rem;
-      color: var(--text);
+      background: transparent; border-bottom: 1px solid rgba(0,0,0,0.1); cursor: pointer; font-size: 0.85rem;
+      color: var(--field-text);
     }
     .preset-item:last-child { border-bottom: none; }
-    .preset-item:hover { background: rgba(79,70,229,0.05); }
-    .preset-item.active { background: rgba(79,70,229,0.1); border-left: 3px solid var(--accent); font-weight: bold; }
+    .preset-item:hover { background: rgba(181,118,42,0.08); }
+    .preset-item.active { background: rgba(181,118,42,0.18); border-left: 3px solid var(--accent); font-weight: bold; }
 
     .action-btns { display: flex; gap: 4px; flex-shrink: 0; }
     .action-btns button {
@@ -124,72 +171,150 @@
     .delete-btn { color: var(--danger); }
     .delete-btn:hover { border-color: var(--danger); }
 
-    h3 { letter-spacing: 0.5px; }
+    h3 { letter-spacing: 0.5px; font-family: var(--font-label); }
+
+    /* Knobs — reused for the sidebar's decorative Source dial and the
+       stage's real Zoom/Brightness/Volume dials. */
+    .knob-wrap { display:flex; flex-direction:column; align-items:center; gap:4px; width:56px; }
+    .knob {
+      width:44px; height:44px; border-radius:50%;
+      background: radial-gradient(circle at 34% 28%, #f4efe4, #8a7a63 55%, #2c2419 100%);
+      border:2px solid #1c150d;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.5), inset 0 1px 1px rgba(255,255,255,0.5), inset 0 -3px 4px rgba(0,0,0,0.45);
+      position:relative; cursor:pointer; touch-action:none;
+    }
+    .knob::after {
+      content:''; position:absolute; left:50%; top:5px; width:3px; height:15px;
+      background:var(--brass); border-radius:2px;
+      transform: translateX(-50%) rotate(var(--knob-angle, 0deg));
+      transform-origin: 50% 17px;
+    }
+    .knob.disabled { opacity:0.35; cursor:default; }
+    .knob:focus-visible { outline:2px solid var(--brass); outline-offset:2px; }
+    .knob-label { font-family:var(--font-label); font-size:0.6rem; letter-spacing:1.5px; text-transform:uppercase; color:#cbb99a; }
+    .knob-value { font-family:var(--font-label); font-size:0.62rem; font-weight:600; letter-spacing:0.5px; color:var(--brass); min-height:0.9em; }
 
     /* Presentation Main Stage */
     #stage { flex: 1; min-width: 0; display: flex; flex-direction: column; height: 100vh; position: relative; background: var(--bg); }
 
     #toggle-btn {
       position: absolute; top: 10px; left: 10px; z-index: 20;
-      background: var(--bg-panel); color: var(--text); border: 1px solid var(--border);
-      padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 0.8rem;
-      letter-spacing: 0.5px; text-transform: uppercase;
+      background: linear-gradient(160deg,var(--wood-light),var(--wood-dark)); color: #f3e9d8; border: 1px solid #1c150d;
+      padding: 8px 12px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 0.78rem;
+      letter-spacing: 0.5px; text-transform: uppercase; font-family: var(--font-label);
     }
-    #toggle-btn:hover { background: rgba(79,70,229,0.06); }
+    #toggle-btn:hover { background: rgba(255,255,255,0.08); }
 
     #module-nav {
       position: absolute; top: 10px; right: 10px; z-index: 20;
       display: flex; align-items: center; gap: 4px;
-      background: var(--bg-panel); border: 1px solid var(--border); border-radius: 4px;
-      padding: 6px 8px; font-size: 0.8rem;
+      background: linear-gradient(160deg,var(--wood-light),var(--wood-dark)); border: 1px solid #1c150d; border-radius: 4px;
+      padding: 6px 8px; font-size: 0.8rem; font-family: var(--font-label);
     }
     #module-nav button {
-      background: transparent; border: 1px solid var(--border); color: var(--text); cursor: pointer;
-      font-weight: bold; font-size: 0.85rem; padding: 4px 8px; border-radius: 3px;
+      background: transparent; border: 1px solid rgba(255,255,255,0.25); color: #f3e9d8; cursor: pointer;
+      font-weight: 600; font-size: 0.82rem; padding: 4px 8px; border-radius: 3px; font-family: var(--font-label);
     }
-    #module-nav button:hover:not(:disabled) { background: rgba(79,70,229,0.08); border-color: var(--accent); }
-    #module-nav button:disabled { color: #c3c7d1; border-color: #e5e7eb; cursor: default; }
+    #module-nav button:hover:not(:disabled) { background: rgba(255,255,255,0.12); border-color: var(--brass); }
+    #module-nav button:disabled { color: rgba(255,255,255,0.3); border-color: rgba(255,255,255,0.1); cursor: default; }
     #swap-deck-btn {
-      color: var(--amber); border-color: var(--border);
+      color: #ffce8a; border-color: rgba(255,255,255,0.25);
       max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
     }
-    #swap-deck-btn:hover:not(:disabled) { background: rgba(180,83,9,0.08); border-color: var(--amber); }
-    #presenter-toggle-btn.nav-on { color: #ffffff; background: var(--accent); border-color: var(--accent); }
-    #presenter-toggle-btn.nav-on:hover { background: var(--accent); }
-    #autofit-toggle-btn.nav-on { color: #ffffff; background: var(--accent); border-color: var(--accent); }
-    #autofit-toggle-btn.nav-on:hover { background: var(--accent); }
+    #swap-deck-btn:hover:not(:disabled) { background: rgba(255,206,138,0.12); border-color: #ffce8a; }
+    #presenter-toggle-btn.nav-on { color: #1b1208; background: var(--brass); border-color: var(--brass); }
+    #presenter-toggle-btn.nav-on:hover { background: var(--brass); }
+    #autofit-toggle-btn.nav-on { color: #1b1208; background: var(--brass); border-color: var(--brass); }
+    #autofit-toggle-btn.nav-on:hover { background: var(--brass); }
     #preview-banner-chip {
-      color: #ffffff; background: var(--danger); font-weight: bold; font-size: 0.68rem;
+      color: #ffffff; background: var(--danger); font-weight: bold; font-size: 0.66rem;
       padding: 4px 6px; border-radius: 3px; letter-spacing: 0.5px; text-transform: uppercase;
-      white-space: nowrap;
+      white-space: nowrap; font-family: var(--font-label);
     }
-    #preview-day-select { font-size: 0.8rem; padding: 3px 4px; border-radius: 3px; border: 1px solid var(--border); background: transparent; color: var(--text); }
-    #preview-day-select.preview-active { border-color: var(--danger); color: var(--danger); font-weight: bold; }
+    #preview-day-select { font-size: 0.78rem; padding: 3px 4px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #f3e9d8; font-family: var(--font-label); }
+    #preview-day-select.preview-active { border-color: var(--danger); color: #ff8a80; font-weight: bold; }
     #current-module-label {
-      color: var(--text); letter-spacing: 0.5px; max-width: 100px; overflow: hidden;
+      color: #f3e9d8; letter-spacing: 0.5px; max-width: 100px; overflow: hidden;
       text-overflow: ellipsis; white-space: nowrap;
     }
 
+    /* Knob panel — Zoom / Brightness / Volume, the stage's real dials */
+    #knob-panel {
+      position:absolute; bottom:16px; right:16px; z-index:20;
+      display:flex; gap:14px; align-items:flex-end;
+      background: linear-gradient(160deg,var(--wood-light),var(--wood-dark));
+      border:1px solid #1c150d; border-radius:12px; padding:10px 14px;
+      box-shadow:0 8px 20px rgba(0,0,0,0.35);
+    }
+
+    /* Screen frame — the TV cabinet's bezel around the goal header + content */
+    #screen-frame {
+      flex:1; min-height:0; display:flex; flex-direction:column; gap:10px;
+      margin: 60px 16px 16px; border-radius: 26px; padding: 14px;
+      background: linear-gradient(155deg, var(--wood-light) 0%, var(--wood-mid) 50%, var(--wood-dark) 100%);
+      box-shadow: 0 14px 34px rgba(20,12,4,0.35), inset 0 1px 1px rgba(255,255,255,0.18);
+      position:relative;
+    }
+    #screen-frame::before {
+      content:''; position:absolute; inset:0; border-radius:inherit; pointer-events:none;
+      background-image: repeating-linear-gradient(115deg, rgba(0,0,0,0.05) 0px, rgba(0,0,0,0.05) 2px, transparent 2px, transparent 5px);
+      mix-blend-mode: multiply; opacity:0.5;
+    }
+
     #goal-header {
-      min-height: 120px; max-height: 180px; background: var(--bg);
+      min-height: 110px; max-height: 170px; background: transparent;
       display: grid; grid-template-columns: 1fr 1fr;
-      gap: 20px; padding: 12px 540px 12px 120px;
+      gap: 14px; padding: 0; position:relative; z-index:1;
     }
 
     .goal-column {
-      background: var(--bg-field); padding: 10px 14px; border: 1px solid var(--border);
-      border-radius: 4px;
+      background: var(--bg-field); padding: 10px 14px; border: 1px solid rgba(0,0,0,0.25);
+      border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.25);
       display: flex; flex-direction: column; justify-content: center; overflow: hidden;
     }
-    .goal-column h3 { font-size: 0.7rem; font-weight: bold; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; flex-shrink: 0; }
-    .goal-column p { font-size: clamp(0.8rem, 1.2vw, 1.1rem); color: var(--text); line-height: 1.3; word-break: break-word; overflow-y: auto; }
+    .goal-column h3 { font-size: 0.68rem; font-weight: 700; color: var(--accent); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px; flex-shrink: 0; }
+    .goal-column p { font-size: clamp(0.8rem, 1.2vw, 1.1rem); color: var(--field-text); line-height: 1.3; word-break: break-word; overflow-y: auto; font-family: var(--font-sans); }
 
     #content-frame-wrap {
-      flex: 1; min-height: 0; min-width: 0; overflow: hidden;
+      flex: 1; min-height: 0; min-width: 0; overflow: hidden; position:relative; z-index:1;
       display: flex; align-items: center; justify-content: center;
-      background: var(--bg);
+      background: #000; border-radius: 14px; border: 8px solid #14100a;
+      box-shadow: inset 0 0 30px rgba(0,0,0,0.6);
     }
-    #content-frame { display: block; border: none; background: var(--bg); }
+    #content-frame { display: block; border: none; background: #000; }
+    #content-frame-wrap.zoom-fill #content-frame { object-fit: cover; }
+    #content-frame-wrap:not(.zoom-fill) #content-frame { object-fit: contain; }
+
+    /* Empty state — shown when nothing is live: a monochrome broadcast
+       "monoscope" resolution/calibration test card, standing in for "no
+       signal yet". The bottom grayscale step-wedge is the functional
+       piece — it's what you'd actually look at while turning the
+       Brightness knob to check the screen is set up right. */
+    #empty-state {
+      position:absolute; inset:0; overflow:hidden; z-index:2;
+      background:#b3b0a2;
+    }
+    #test-pattern-svg { position:absolute; inset:0; width:100%; height:100%; display:block; }
+    /* faint rolling scanlines + a CRT-ish vignette, purely decorative */
+    #test-pattern-scanlines {
+      position:absolute; inset:0; pointer-events:none;
+      background-image: repeating-linear-gradient(0deg, rgba(0,0,0,0.12) 0px, rgba(0,0,0,0.12) 1px, transparent 1px, transparent 3px);
+      mix-blend-mode: multiply; opacity:0.4;
+    }
+    #empty-state::after {
+      content:''; position:absolute; inset:0; pointer-events:none;
+      background: radial-gradient(ellipse at center, transparent 60%, rgba(0,0,0,0.35) 100%);
+    }
+    #empty-state-inner {
+      /* Sits in the gap between the top resolution comb and the bullseye's
+         top edge — anywhere lower would sit on top of the grayscale wedge
+         at the bottom, which is the part actually meant to be looked at. */
+      position:absolute; top:19%; left:50%; transform:translateX(-50%);
+      text-align:center; padding:8px 20px; background:rgba(8,8,8,0.72);
+      border:1px solid rgba(255,255,255,0.25); border-radius:6px; z-index:1;
+      white-space:nowrap;
+    }
+    #empty-state-hint { font-family: var(--font-label); letter-spacing:1px; text-transform:uppercase; font-size:0.66rem; color:#e3ddc9; }
 
     /* thin scrollbars */
     ::-webkit-scrollbar { width: 10px; height: 10px; }
@@ -199,20 +324,31 @@
 
     /* ---------------- Presenter/display window mode ----------------
        Loaded via index.html?present=1 (opened automatically by the
-       "DISPLAY" toggle). Strips all teacher-facing controls so only
-       the goal header + slides remain, for the projector/second screen. */
+       "DISPLAY" toggle). Strips all teacher-facing controls (including
+       the cabinet chrome, which is a teacher-side flourish only) so only
+       the goal header + content remain, for the projector/second screen. */
     body.presenter-view #sidebar,
     body.presenter-view #toggle-btn,
-    body.presenter-view #module-nav {
+    body.presenter-view #module-nav,
+    body.presenter-view #knob-panel {
       display: none !important;
     }
+    body.presenter-view #screen-frame {
+      margin: 0; padding: 0; border-radius: 0; box-shadow: none; gap: 0;
+      background: var(--stage-bg);
+    }
+    body.presenter-view #screen-frame::before { display: none; }
     body.presenter-view #goal-header {
       padding: 12px 20px;
+    }
+    body.presenter-view #content-frame-wrap {
+      border-radius: 0; border: none; box-shadow: none;
     }
     /* The projector/second-screen view goes black so any pillarboxing
        Google's embed still leaves blends into the backdrop instead of
        standing out against white. The control window (this same file
-       without ?present=1) stays light — only the popup gets this. */
+       without ?present=1) stays on its cabinet skin — only the popup
+       gets this. */
     body.presenter-view #stage,
     body.presenter-view #goal-header,
     body.presenter-view #content-frame-wrap,
@@ -223,9 +359,14 @@
 </head>
 <body>
 <div id="app">
-
   <!-- Control Sidebar -->
   <div id="sidebar">
+    <div id="brand-plate">
+      <div id="brand-name">Presenter<span id="brand-3">3</span></div>
+      <div id="brand-tagline">Simple Tools for Big Ideas</div>
+      <div id="brand-site">PaintSpills &middot; paintspills.com</div>
+    </div>
+
     <div class="tab-header">
       <button class="tab-btn active" onclick="switchTab('modules-tab', event)">Modules</button>
       <button class="tab-btn" onclick="switchTab('decks-tab', event)">Slide Decks</button>
@@ -244,7 +385,7 @@
 
     <!-- TAB 1: MODULE BUILDER & LIST -->
     <div id="modules-tab" class="tab-content active">
-      <h3 id="form-title" style="font-size: 1rem; color: var(--accent);">&gt; Create/Edit Module</h3>
+      <h3 id="form-title" style="font-size: 1rem; color: var(--brass);">&gt; Create/Edit Module</h3>
       <div class="input-group">
         <label>Module Name</label>
         <input type="text" id="module-name" placeholder="e.g., Lesson 1">
@@ -259,11 +400,27 @@
       </div>
 
       <div class="input-group">
-        <label>Lecture Deck — Pick or Paste</label>
+        <label>Content Source</label>
+        <div class="source-row">
+          <div class="knob" id="source-knob" tabindex="-1" aria-hidden="true"></div>
+          <div class="source-list" id="source-type-list">
+            <button type="button" class="source-opt active" data-type="slides" onclick="setSourceType('slides')"><span class="dot"></span>Google Slides</button>
+            <button type="button" class="source-opt" data-type="web" onclick="setSourceType('web')"><span class="dot"></span>Web Page</button>
+            <button type="button" class="source-opt" data-type="pdf" onclick="setSourceType('pdf')"><span class="dot"></span>PDF</button>
+            <button type="button" class="source-opt" data-type="image" onclick="setSourceType('image')"><span class="dot"></span>Image</button>
+            <button type="button" class="source-opt" data-type="video" onclick="setSourceType('video')"><span class="dot"></span>Video</button>
+          </div>
+        </div>
+      </div>
+      <div class="input-group" id="deck-picker-group">
+        <label>Pick From Saved Decks</label>
         <select id="deck-picker" onchange="pickDeck(this.value)">
           <option value="">-- Pick from Saved Decks --</option>
         </select>
-        <input type="text" id="content-url" placeholder="https://docs.google.com/.../embed" style="margin-top: 4px;">
+      </div>
+      <div class="input-group">
+        <label>Content Link</label>
+        <input type="text" id="content-url" placeholder="https://docs.google.com/.../embed">
       </div>
 
       <div class="btn-group">
@@ -277,7 +434,7 @@
 
     <!-- TAB 2: SLIDE DECK LIBRARY -->
     <div id="decks-tab" class="tab-content">
-      <h3 style="font-size: 1rem; color: var(--accent);">&gt; Saved Slide Decks</h3>
+      <h3 style="font-size: 1rem; color: var(--brass);">&gt; Saved Slide Decks</h3>
 
       <div class="deck-subtab-header">
         <button class="deck-subtab-btn active" onclick="switchDeckSubtab('deckA-panel', event)">Deck A &middot; Lecture</button>
@@ -331,7 +488,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
 
     <!-- TAB 3: LECTURE GROUPS -->
     <div id="groups-tab" class="tab-content">
-      <h3 id="group-form-title" style="font-size: 1rem; color: var(--accent);">&gt; Create/Edit Group</h3>
+      <h3 id="group-form-title" style="font-size: 1rem; color: var(--brass);">&gt; Create/Edit Group</h3>
       <div class="input-group">
         <label>Group Name</label>
         <input type="text" id="group-name" placeholder="e.g., Bio Unit 3">
@@ -356,7 +513,6 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       <div class="preset-list" id="group-list"></div>
     </div>
   </div>
-
   <!-- Main Presentation Area -->
   <div id="stage">
     <button id="toggle-btn" onclick="toggleSidebar()" title="Show/hide controls (Tab)">☰ Controls</button>
@@ -369,7 +525,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (F)">⛶</button>
       <button id="autofit-toggle-btn" onclick="toggleAutofit()" title="Shrink goal text to fit instead of scrolling">FIT: ON</button>
       <button id="presenter-toggle-btn" onclick="togglePresenterWindow()" title="Open/close a controls-free display window for your projector or second screen">🖥 DISPLAY: OFF</button>
-      <span id="preview-day-group" style="display:flex; align-items:center; gap:4px; margin-left:4px; padding-left:6px; border-left:1px solid var(--border);">
+      <span id="preview-day-group" style="display:flex; align-items:center; gap:4px; margin-left:4px; padding-left:6px; border-left:1px solid rgba(255,255,255,0.2);">
         <span id="preview-banner-chip" style="display:none;">⚠ PREVIEWING <span id="preview-day-name"></span></span>
         <select id="preview-day-select" onchange="setPreviewDay(this.value)" title="Preview a day-synced module/bellwork as a different weekday, to confirm a planner Sync worked without waiting for that day to arrive. Resets to Today whenever this page reloads.">
           <option value="">Today</option>
@@ -382,25 +538,181 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       </span>
     </div>
 
-    <div id="goal-header">
-      <div class="goal-column">
-        <h3>Level Up Goal</h3>
-        <p id="disp-goal-1">Select or add a module to begin</p>
+    <div id="knob-panel">
+      <div class="knob-wrap">
+        <div class="knob" id="zoom-knob" tabindex="0" role="switch" aria-label="Zoom: Fit or Fill" title="Toggle whether content fits entirely inside the screen (FIT) or fills it edge-to-edge, cropping if needed (FILL)"></div>
+        <div class="knob-label">Zoom</div>
+        <div class="knob-value" id="zoom-knob-value">FIT</div>
       </div>
-      <div class="goal-column">
-        <h3>How We Know We Leveled Up</h3>
-        <p id="disp-goal-2">---</p>
+      <div class="knob-wrap">
+        <div class="knob" id="brightness-knob" tabindex="0" role="slider" aria-label="Brightness" aria-valuemin="60" aria-valuemax="140" title="Click to step, or drag up/down / scroll / arrow keys for finer control, to dim or brighten the screen"></div>
+        <div class="knob-label">Bright</div>
+        <div class="knob-value" id="brightness-knob-value">100%</div>
+      </div>
+      <div class="knob-wrap">
+        <div class="knob" id="volume-knob" tabindex="0" role="slider" aria-label="Volume" aria-valuemin="0" aria-valuemax="100" title="Click to step, or drag up/down / scroll / arrow keys for finer control, to change video volume (only active while a Video module is showing)"></div>
+        <div class="knob-label">Volume</div>
+        <div class="knob-value" id="volume-knob-value">80%</div>
       </div>
     </div>
 
-    <div id="content-frame-wrap">
-      <iframe id="content-frame" src="about:blank"></iframe>
+    <div id="screen-frame">
+      <div id="goal-header">
+        <div class="goal-column">
+          <h3>Level Up Goal</h3>
+          <p id="disp-goal-1">Select or add a module to begin</p>
+        </div>
+        <div class="goal-column">
+          <h3>How We Know We Leveled Up</h3>
+          <p id="disp-goal-2">---</p>
+        </div>
+      </div>
+
+      <div id="content-frame-wrap">
+        <div id="empty-state">
+          <svg id="test-pattern-svg" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <!-- One resolution wedge (circle + converging line fan), reused
+                   at all four corners via <use> with mirroring transforms so
+                   the geometry is only ever authored once. -->
+              <g id="resWedge">
+                <circle cx="0" cy="0" r="100" fill="#c7c4b8" stroke="#232320" stroke-width="4"/>
+                <g stroke="#232320" stroke-width="3">
+                  <line x1="95" y1="0" x2="-73.7" y2="51.7"/>
+                  <line x1="95" y1="0" x2="-80.9" y2="39.4"/>
+                  <line x1="95" y1="0" x2="-86.0" y2="26.3"/>
+                  <line x1="95" y1="0" x2="-89.1" y2="12.5"/>
+                  <line x1="95" y1="0" x2="-90" y2="0"/>
+                  <line x1="95" y1="0" x2="-89.1" y2="-12.5"/>
+                  <line x1="95" y1="0" x2="-86.0" y2="-26.3"/>
+                  <line x1="95" y1="0" x2="-80.9" y2="-39.4"/>
+                  <line x1="95" y1="0" x2="-73.7" y2="-51.7"/>
+                </g>
+              </g>
+            </defs>
+
+            <rect x="0" y="0" width="1600" height="900" fill="#b3b0a2"/>
+
+            <!-- Top resolution comb -->
+            <g fill="#232320">
+              <rect x="360" y="40" width="10" height="46"/>
+              <rect x="384" y="40" width="16" height="46"/>
+              <rect x="416" y="40" width="10" height="46"/>
+              <rect x="440" y="40" width="22" height="46"/>
+              <rect x="478" y="40" width="10" height="46"/>
+              <rect x="502" y="40" width="28" height="46"/>
+              <rect x="546" y="40" width="10" height="46"/>
+              <rect x="700" y="40" width="200" height="46"/>
+              <rect x="954" y="40" width="10" height="46"/>
+              <rect x="978" y="40" width="28" height="46"/>
+              <rect x="1022" y="40" width="10" height="46"/>
+              <rect x="1046" y="40" width="22" height="46"/>
+              <rect x="1084" y="40" width="10" height="46"/>
+              <rect x="1108" y="40" width="16" height="46"/>
+              <rect x="1140" y="40" width="10" height="46"/>
+            </g>
+            <g fill="#232320">
+              <circle cx="380" cy="102" r="4"/><circle cx="410" cy="102" r="4"/><circle cx="440" cy="102" r="4"/>
+              <circle cx="470" cy="102" r="4"/><circle cx="500" cy="102" r="4"/><circle cx="530" cy="102" r="4"/>
+              <circle cx="560" cy="102" r="4"/><circle cx="590" cy="102" r="4"/><circle cx="620" cy="102" r="4"/>
+              <circle cx="980" cy="102" r="4"/><circle cx="1010" cy="102" r="4"/><circle cx="1040" cy="102" r="4"/>
+              <circle cx="1070" cy="102" r="4"/><circle cx="1100" cy="102" r="4"/><circle cx="1130" cy="102" r="4"/>
+              <circle cx="1160" cy="102" r="4"/><circle cx="1190" cy="102" r="4"/><circle cx="1220" cy="102" r="4"/>
+            </g>
+
+            <!-- Four corner resolution wedges -->
+            <use href="#resWedge" transform="translate(210,210)"/>
+            <use href="#resWedge" transform="translate(1390,210) scale(-1,1)"/>
+            <use href="#resWedge" transform="translate(210,690) scale(1,-1)"/>
+            <use href="#resWedge" transform="translate(1390,690) scale(-1,-1)"/>
+            <g font-family="Oswald, sans-serif" font-weight="600" font-size="30" fill="#232320" text-anchor="middle">
+              <text x="70" y="150">1</text><text x="70" y="190">2</text>
+              <text x="1530" y="150">1</text><text x="1530" y="190">2</text>
+              <text x="70" y="720">5</text><text x="70" y="760">6</text>
+              <text x="1530" y="720">5</text><text x="1530" y="760">6</text>
+            </g>
+
+            <!-- Side mini step-wedges (labeled 3/4), same idea as the main
+                 bar below but smaller — extra brightness/contrast reference
+                 points at the screen's edges, not just its center. -->
+            <g>
+              <rect x="40" y="380" width="60" height="24" fill="#111111"/>
+              <rect x="40" y="404" width="60" height="24" fill="#4d4d4d"/>
+              <rect x="40" y="428" width="60" height="24" fill="#8a8a8a"/>
+              <rect x="40" y="452" width="60" height="24" fill="#c6c6c6"/>
+              <rect x="40" y="476" width="60" height="24" fill="#f2f2f2"/>
+              <rect x="1500" y="380" width="60" height="24" fill="#111111"/>
+              <rect x="1500" y="404" width="60" height="24" fill="#4d4d4d"/>
+              <rect x="1500" y="428" width="60" height="24" fill="#8a8a8a"/>
+              <rect x="1500" y="452" width="60" height="24" fill="#c6c6c6"/>
+              <rect x="1500" y="476" width="60" height="24" fill="#f2f2f2"/>
+            </g>
+            <g font-family="Oswald, sans-serif" font-weight="600" font-size="26" fill="#232320" text-anchor="middle">
+              <text x="70" y="365">3</text><text x="70" y="530">4</text>
+              <text x="1530" y="365">3</text><text x="1530" y="530">4</text>
+            </g>
+
+            <!-- Center bullseye + brand banner -->
+            <g>
+              <circle cx="800" cy="450" r="200" fill="#9a978c"/>
+              <circle cx="800" cy="450" r="170" fill="#b9b7ac"/>
+              <circle cx="800" cy="450" r="140" fill="#847f72"/>
+              <circle cx="800" cy="450" r="110" fill="#c7c4b8"/>
+              <circle cx="800" cy="450" r="80" fill="#6b665a"/>
+              <circle cx="800" cy="450" r="50" fill="#dedad0"/>
+            </g>
+            <rect x="560" y="405" width="480" height="90" fill="#e3e0d4" stroke="#232320" stroke-width="3"/>
+            <text x="800" y="440" text-anchor="middle" font-family="'Playfair Display', Georgia, serif" font-weight="900" font-size="34" fill="#1c1c1a">PRESENTER 3</text>
+            <text x="800" y="470" text-anchor="middle" font-family="Oswald, sans-serif" font-weight="600" font-size="18" letter-spacing="4" fill="#4a4636">PRESENT &#183; TEACH &#183; SHARE</text>
+            <g fill="none" stroke="#232320" stroke-width="2">
+              <circle cx="520" cy="450" r="20"/>
+              <circle cx="1080" cy="450" r="20"/>
+              <line x1="500" y1="450" x2="540" y2="450"/><line x1="520" y1="430" x2="520" y2="470"/>
+              <line x1="505" y1="435" x2="535" y2="465"/><line x1="505" y1="465" x2="535" y2="435"/>
+              <line x1="1060" y1="450" x2="1100" y2="450"/><line x1="1080" y1="430" x2="1080" y2="470"/>
+              <line x1="1065" y1="435" x2="1095" y2="465"/><line x1="1065" y1="465" x2="1095" y2="435"/>
+            </g>
+
+            <!-- Small mirrored wedges flanking the main step bar -->
+            <use href="#resWedge" transform="translate(650,700) scale(0.55,0.55)"/>
+            <use href="#resWedge" transform="translate(950,700) scale(-0.55,0.55)"/>
+
+            <!-- The main event: a 10-step grayscale wedge, black to white,
+                 for actually checking the Brightness knob against — you
+                 should be able to tell every block apart from its
+                 neighbors at a properly set brightness level. -->
+            <g>
+              <rect x="140" y="790" width="132" height="70" fill="#000000"/>
+              <rect x="272" y="790" width="132" height="70" fill="#1c1c1c"/>
+              <rect x="404" y="790" width="132" height="70" fill="#393939"/>
+              <rect x="536" y="790" width="132" height="70" fill="#555555"/>
+              <rect x="668" y="790" width="132" height="70" fill="#717171"/>
+              <rect x="800" y="790" width="132" height="70" fill="#8e8e8e"/>
+              <rect x="932" y="790" width="132" height="70" fill="#aaaaaa"/>
+              <rect x="1064" y="790" width="132" height="70" fill="#c6c6c6"/>
+              <rect x="1196" y="790" width="132" height="70" fill="#e3e3e3"/>
+              <rect x="1328" y="790" width="132" height="70" fill="#ffffff"/>
+            </g>
+            <rect x="140" y="864" width="1320" height="14" fill="#000000"/>
+            <g font-family="Oswald, sans-serif" font-weight="600" font-size="16" fill="#3a3a38" text-anchor="middle">
+              <text x="206" y="783">0%</text>
+              <text x="470" y="783">25%</text>
+              <text x="800" y="783">50%</text>
+              <text x="1130" y="783">75%</text>
+              <text x="1394" y="783">100%</text>
+            </g>
+          </svg>
+          <div id="test-pattern-scanlines"></div>
+          <div id="empty-state-inner">
+            <div id="empty-state-hint">Stand by &mdash; load a Google Slides deck, webpage, PDF, image, or video to get started.</div>
+          </div>
+        </div>
+        <iframe id="content-frame" src="about:blank"></iframe>
+      </div>
     </div>
   </div>
-
 </div>
-
-  <script>
+<script>
     let modules = JSON.parse(localStorage.getItem('classroom_modules_v2')) || [];
     let decks = JSON.parse(localStorage.getItem('classroom_decks')) || [];
     let groups = JSON.parse(localStorage.getItem('classroom_lecture_groups')) || [];
@@ -430,16 +742,33 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       return 'id-' + Date.now() + '-' + Math.random().toString(36).slice(2, 10);
     }
 
-    // One-time upgrade for data saved before Groups/shared Bellwork existed:
-    // gives every module a stable id (so groups can reference it), and seeds
-    // the new shared bellwork slot from whichever module had one set, so
-    // existing bellwork configuration doesn't just disappear.
+    // One-time upgrade for data saved before Groups/shared Bellwork/source
+    // types existed: gives every module a stable id (so groups can
+    // reference it), backfills sourceType 'slides' on any module or
+    // contentByDay slot that predates multi-source support (a planner
+    // Sync Week only ever produces Slides links, so its slots always need
+    // this backfill too), and seeds the shared bellwork slot from whichever
+    // module had one set, so existing bellwork configuration doesn't just
+    // disappear.
     function migrateData() {
       let modulesChanged = false;
       modules.forEach(mod => {
         if (!mod.id) {
           mod.id = generateId();
           modulesChanged = true;
+        }
+        if (!mod.sourceType) {
+          mod.sourceType = 'slides';
+          modulesChanged = true;
+        }
+        if (mod.contentByDay) {
+          Object.keys(mod.contentByDay).forEach(dk => {
+            const slot = mod.contentByDay[dk];
+            if (slot && !slot.sourceType) {
+              slot.sourceType = 'slides';
+              modulesChanged = true;
+            }
+          });
         }
       });
       if (modulesChanged) {
@@ -482,9 +811,9 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       return previewDayOverride || getTodayKey();
     }
 
-    // {contentUrl, g1, g2} for "right now" — from today's (or the
-    // previewed day's) slot in contentByDay if the module has one, else
-    // the module's own flat fields. A day-synced module with nothing
+    // {contentUrl, g1, g2, sourceType} for "right now" — from today's (or
+    // the previewed day's) slot in contentByDay if the module has one,
+    // else the module's own flat fields. A day-synced module with nothing
     // resolved yet for that day (before this week's first LINK:, or a
     // real weekend with no preview override) comes back null.
     function resolveModuleToday(mod) {
@@ -494,13 +823,14 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
         const slot = dayKey ? mod.contentByDay[dayKey] : null;
         return slot || null;
       }
-      return { contentUrl: mod.contentUrl, g1: mod.g1, g2: mod.g2 };
+      return { contentUrl: mod.contentUrl, g1: mod.g1, g2: mod.g2, sourceType: mod.sourceType || 'slides' };
     }
 
     // {title, url} for today's (or the previewed day's) bellwork — the
     // day-table takes priority over the flat sharedBellwork when one
     // exists at all (see the note by the sharedBellworkByDay declaration
-    // above).
+    // above). Bellwork is always a Deck Library entry, so it's always
+    // Google Slides — no sourceType to resolve here.
     function resolveBellwork() {
       if (sharedBellworkByDay) {
         const dayKey = getEffectiveDayKey();
@@ -570,6 +900,21 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       document.getElementById('sidebar').classList.toggle('collapsed');
     }
 
+    // Cleans a pasted Google Slides link into its embeddable form. Handles
+    // both link shapes a teacher might copy: the ordinary Share-button
+    // link (ends in /edit) and the Publish-to-web dialog's plain "Link"
+    // tab (ends in /pub) — as opposed to that same dialog's "Embed" tab,
+    // whose src is already .../embed. Both /edit and /pub carry the same
+    // file id and query string as the working /embed form; only the final
+    // path segment differs, so a straight swap is enough either way.
+    function cleanUrl(url) {
+      if (!url) return '';
+      if (url.includes('docs.google.com/presentation') && !url.includes('/embed')) {
+        if (/\/edit/.test(url)) return url.replace(/\/edit.*$/, '/embed');
+        if (/\/pub(\?|$)/.test(url)) return url.replace(/\/pub(\?|$)/, '/embed$1');
+      }
+      return url;
+    }
     // Google's Slides embed pillarboxes in black whenever its iframe box is
     // wider/taller than the deck's own aspect ratio — and that's cross-origin
     // content, so we can't recolor those bars directly. Instead we size the
@@ -577,20 +922,25 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     // space to fill; any leftover gutter is just our own page background.
     // Most decks share one shape — change this if yours are the older
     // "Standard" 4:3 size instead of "Widescreen" 16:9 (check any deck's
-    // File > Page setup in Google Slides to confirm).
+    // File > Page setup in Google Slides to confirm). This special-case
+    // sizing only applies to Slides content in Zoom:Fit mode — every other
+    // source type, and Slides in Zoom:Fill, just stretches to fill the box.
     const SLIDE_ASPECT_RATIO = 16 / 9;
-    // Even with rm=minimal, Google's embed can leave a thin, sometimes
-    // uneven sliver on an edge or two rather than a clean symmetric gap —
-    // so instead of fitting the frame exactly to the wrap, size it slightly
-    // *larger* and let the wrap's overflow:hidden clip the excess evenly.
-    // Any remaining gap means this needs to go up a bit; visible cropping
-    // of your slide's edges means it can come back down.
     const SLIDE_OVERSCAN = 1.0;
 
     function fitContentFrame() {
       const wrap = document.getElementById('content-frame-wrap');
       const frame = document.getElementById('content-frame');
       if (!wrap || !frame) return;
+
+      const sourceType = wrap.dataset.sourceType || 'slides';
+      const zoomFill = wrap.classList.contains('zoom-fill');
+
+      if (sourceType !== 'slides' || zoomFill) {
+        frame.style.width = '100%';
+        frame.style.height = '100%';
+        return;
+      }
 
       const wrapW = wrap.clientWidth;
       const wrapH = wrap.clientHeight;
@@ -602,7 +952,6 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
         h = wrapH;
         w = h * SLIDE_ASPECT_RATIO;
       }
-
       w *= SLIDE_OVERSCAN;
       h *= SLIDE_OVERSCAN;
 
@@ -661,10 +1010,144 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       }
     }
 
+    // --- KNOBS: Zoom / Brightness / Volume ---
+    // Zoom is a simple two-position click-toggle; Brightness and Volume are
+    // continuous drag/scroll/arrow-key dials. All three persist per-browser
+    // in localStorage and sync to any open DISPLAY popup via the 'storage'
+    // event, same pattern as the pre-existing autofit toggle.
+    function angleForValue(value, min, max) {
+      const pct = (value - min) / (max - min);
+      return -135 + pct * 270;
+    }
+
+    function getZoomMode() {
+      return localStorage.getItem('classroom_zoom_mode') === 'fill' ? 'fill' : 'fit';
+    }
+    function setZoomMode(mode) {
+      localStorage.setItem('classroom_zoom_mode', mode);
+      applyZoomModeSetting();
+    }
+    function toggleZoomMode() {
+      setZoomMode(getZoomMode() === 'fill' ? 'fit' : 'fill');
+    }
+    function applyZoomModeSetting() {
+      const mode = getZoomMode();
+      const wrap = document.getElementById('content-frame-wrap');
+      if (wrap) wrap.classList.toggle('zoom-fill', mode === 'fill');
+      const knob = document.getElementById('zoom-knob');
+      const label = document.getElementById('zoom-knob-value');
+      if (knob) knob.style.setProperty('--knob-angle', (mode === 'fill' ? 60 : -60) + 'deg');
+      if (label) label.textContent = mode.toUpperCase();
+      fitContentFrame();
+    }
+
+    function getBrightness() {
+      const v = parseInt(localStorage.getItem('classroom_brightness'), 10);
+      return Number.isFinite(v) ? Math.max(60, Math.min(140, v)) : 100;
+    }
+    function setBrightness(v) {
+      v = Math.max(60, Math.min(140, Math.round(v)));
+      localStorage.setItem('classroom_brightness', String(v));
+      applyBrightnessSetting();
+    }
+    function applyBrightnessSetting() {
+      const v = getBrightness();
+      const wrap = document.getElementById('content-frame-wrap');
+      if (wrap) wrap.style.filter = 'brightness(' + v + '%)';
+      const knob = document.getElementById('brightness-knob');
+      const label = document.getElementById('brightness-knob-value');
+      if (knob) knob.style.setProperty('--knob-angle', angleForValue(v, 60, 140) + 'deg');
+      if (label) label.textContent = v + '%';
+    }
+
+    function getVolume() {
+      const v = parseInt(localStorage.getItem('classroom_volume'), 10);
+      return Number.isFinite(v) ? Math.max(0, Math.min(100, v)) : 80;
+    }
+    function setVolume(v) {
+      v = Math.max(0, Math.min(100, Math.round(v)));
+      localStorage.setItem('classroom_volume', String(v));
+      applyVolumeSetting();
+    }
+    // Applied both on every drag tick and after a fresh render. For a
+    // direct <video> element this is instant (just sets .volume/.muted).
+    // For a YouTube embed there's no live volume via the iframe's URL —
+    // only an initial mute=0/1 param — so dragging just updates the knob
+    // visually until the mute boundary (0 <-> non-zero) is actually
+    // crossed, at which point the iframe is re-rendered with the new
+    // mute param. That's a coarser control than a real fader, but YouTube
+    // doesn't expose more without pulling in its full iframe API.
+    function applyVolumeSetting() {
+      const v = getVolume();
+      const knob = document.getElementById('volume-knob');
+      const label = document.getElementById('volume-knob-value');
+      if (knob) knob.style.setProperty('--knob-angle', angleForValue(v, 0, 100) + 'deg');
+      if (label) label.textContent = v === 0 ? 'MUTE' : v + '%';
+
+      const wrap = document.getElementById('content-frame-wrap');
+      const frame = document.getElementById('content-frame');
+      if (!wrap || !frame) return;
+      if (wrap.dataset.sourceType !== 'video') return;
+
+      if (frame.tagName === 'VIDEO') {
+        frame.volume = v / 100;
+        frame.muted = v === 0;
+      } else if (frame.tagName === 'IFRAME' && frame.dataset.youtube === '1') {
+        const shouldMute = v === 0 ? 'true' : 'false';
+        if (frame.dataset.muted !== shouldMute) {
+          renderStageContent(wrap.dataset.sourceType, wrap.dataset.sourceUrl);
+        }
+      }
+    }
+
+    function setupDragKnob(el, { min, max, step, get, set }) {
+      if (!el) return;
+      let dragging = false, startY = 0, startVal = 0, moved = false;
+      el.addEventListener('pointerdown', (e) => {
+        if (el.classList.contains('disabled')) return;
+        dragging = true;
+        moved = false;
+        startY = e.clientY;
+        startVal = get();
+        el.setPointerCapture(e.pointerId);
+        e.preventDefault();
+      });
+      el.addEventListener('pointermove', (e) => {
+        if (!dragging) return;
+        const deltaY = startY - e.clientY; // dragging up increases the value
+        if (Math.abs(deltaY) > 3) moved = true;
+        if (!moved) return;
+        const raw = startVal + (deltaY / 120) * (max - min);
+        set(Math.round(raw / step) * step);
+      });
+      const endDrag = () => { dragging = false; };
+      el.addEventListener('pointerup', endDrag);
+      el.addEventListener('pointercancel', endDrag);
+      // A plain click (no real drag motion) nudges by one step, wrapping
+      // from max back to min — so clicking, the first thing anyone tries
+      // on a knob-looking control, always visibly does something. Drag,
+      // scroll, and arrow keys remain for finer continuous control.
+      el.addEventListener('click', () => {
+        if (el.classList.contains('disabled') || moved) return;
+        const cur = get();
+        set(cur + step > max ? min : cur + step);
+      });
+      el.addEventListener('wheel', (e) => {
+        if (el.classList.contains('disabled')) return;
+        e.preventDefault();
+        set(get() + (e.deltaY < 0 ? step : -step));
+      }, { passive: false });
+      el.addEventListener('keydown', (e) => {
+        if (el.classList.contains('disabled')) return;
+        if (e.key === 'ArrowUp' || e.key === 'ArrowRight') { set(get() + step); e.preventDefault(); }
+        if (e.key === 'ArrowDown' || e.key === 'ArrowLeft') { set(get() - step); e.preventDefault(); }
+      });
+    }
+
     // --- PRESENTER / DISPLAY WINDOW ---
     // The projector/second-screen view is this same file, reopened with
     // ?present=1. CSS hides every teacher control in that mode, leaving
-    // just the goal header + slides. The two windows sync over
+    // just the goal header + content. The two windows sync over
     // localStorage's built-in 'storage' event (fires in *other*
     // same-origin windows whenever a key changes) — no server needed.
     function togglePresenterWindow() {
@@ -677,11 +1160,6 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       }
 
       const targetUrl = location.href.split('?')[0].split('#')[0] + '?present=1';
-      // Open at the actual screen's size, not a fixed 1280x800 — otherwise
-      // the window just sits smaller than the display with bare desktop
-      // showing around it, which looks identical to a rendering bug but
-      // isn't one. Drag it onto the projector/second screen afterward and
-      // press F for a true borderless fullscreen with no OS chrome at all.
       const screenW = window.screen.availWidth;
       const screenH = window.screen.availHeight;
       presenterWin = window.open(
@@ -697,9 +1175,6 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
 
       updatePresenterBtn();
       stopPresenterPoll();
-      // Same-origin popups don't reliably fire an event on the opener when
-      // the user manually closes them, so poll .closed to keep the toggle
-      // button's ON/OFF state honest.
       presenterPoll = setInterval(() => {
         if (presenterWin && presenterWin.closed) {
           presenterWin = null;
@@ -724,43 +1199,6 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       btn.classList.toggle('nav-on', isOn);
     }
 
-    // Renders whichever module's content is "live" right now. Used by the
-    // control window directly, and by the presenter window whenever the
-    // control window's localStorage state changes.
-    function applyLiveState(state) {
-      const g1 = document.getElementById('disp-goal-1');
-      const g2 = document.getElementById('disp-goal-2');
-      const frame = document.getElementById('content-frame');
-      if (state) {
-        g1.innerText = state.g1;
-        g2.innerText = state.g2;
-        frame.src = withMinimalChrome(state.contentUrl);
-      } else {
-        g1.innerText = 'Select or add a module to begin';
-        g2.innerText = '---';
-        frame.src = 'about:blank';
-      }
-      fitContentFrame();
-      fitGoalText();
-    }
-
-    function setLiveState(state) {
-      applyLiveState(state);
-      if (state) {
-        localStorage.setItem('classroom_live_state', JSON.stringify(state));
-      } else {
-        localStorage.removeItem('classroom_live_state');
-      }
-    }
-
-    function cleanUrl(url) {
-      if (!url) return '';
-      if (url.includes('docs.google.com/presentation') && !url.includes('/embed')) {
-        return url.replace(/\/edit.*$/, '/embed');
-      }
-      return url;
-    }
-
     // Google's Slides embed reserves a thin strip at the bottom for its own
     // nav-arrows/page-counter/watermark bar. That reservation eats into the
     // box we size to the deck's own aspect ratio, so it still shows a sliver
@@ -772,6 +1210,123 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       if (!url || !url.includes('docs.google.com/presentation')) return url;
       if (/[?&]rm=/.test(url)) return url;
       return url + (url.includes('?') ? '&' : '?') + 'rm=minimal';
+    }
+
+    // Extracts a YouTube video id from any of the link shapes people
+    // actually paste (watch?v=, youtu.be/, already-an-embed link, Shorts),
+    // and builds the working embed URL. Anything that doesn't match is
+    // treated as a direct video file URL for a plain <video> tag instead.
+    function toVideoEmbedUrl(url) {
+      if (!url) return { kind: 'file', url: '' };
+      const ytMatch = url.match(/(?:youtube\.com\/(?:watch\?v=|embed\/|shorts\/)|youtu\.be\/)([a-zA-Z0-9_-]{6,})/);
+      if (ytMatch) {
+        const muted = getVolume() === 0 ? 1 : 0;
+        return { kind: 'youtube', url: `https://www.youtube.com/embed/${ytMatch[1]}?rel=0&mute=${muted}` };
+      }
+      return { kind: 'file', url };
+    }
+
+    // Builds whatever element the current content actually needs inside
+    // #content-frame-wrap — an iframe for Slides/Web/PDF/YouTube, an <img>
+    // for Image, or a <video> for a direct video file — always re-tagged
+    // #content-frame so every other function (fit, goal-text sizing,
+    // volume) can keep addressing "the content element" without caring
+    // which tag it actually is this time.
+    function renderStageContent(sourceType, url) {
+      const wrap = document.getElementById('content-frame-wrap');
+      if (!wrap) return;
+      const type = sourceType || 'slides';
+      const hasContent = !!url && url !== 'about:blank';
+      wrap.dataset.sourceType = type;
+      wrap.dataset.sourceUrl = url || '';
+
+      const empty = document.getElementById('empty-state');
+      if (empty) empty.style.display = hasContent ? 'none' : 'flex';
+
+      let html;
+      if (!hasContent) {
+        html = '<iframe id="content-frame" src="about:blank"></iframe>';
+      } else if (type === 'image') {
+        html = '<img id="content-frame" src="' + escapeHtml(url) + '" alt="">';
+      } else if (type === 'video') {
+        const embed = toVideoEmbedUrl(url);
+        if (embed.kind === 'youtube') {
+          html = '<iframe id="content-frame" data-youtube="1" data-muted="' + (getVolume() === 0) + '" src="' + escapeHtml(embed.url) + '" allow="autoplay; encrypted-media; picture-in-picture" allowfullscreen></iframe>';
+        } else {
+          html = '<video id="content-frame" src="' + escapeHtml(url) + '" controls></video>';
+        }
+      } else {
+        const src = type === 'slides' ? withMinimalChrome(url) : url;
+        html = '<iframe id="content-frame" src="' + escapeHtml(src) + '"></iframe>';
+      }
+
+      const old = document.getElementById('content-frame');
+      if (old) old.remove();
+      wrap.insertAdjacentHTML('beforeend', html);
+
+      const volKnob = document.getElementById('volume-knob');
+      if (volKnob) volKnob.classList.toggle('disabled', type !== 'video');
+
+      applyBrightnessSetting();
+      fitContentFrame();
+
+      const frame = document.getElementById('content-frame');
+      if (frame && frame.tagName === 'VIDEO') {
+        frame.volume = getVolume() / 100;
+        frame.muted = getVolume() === 0;
+      }
+    }
+
+    // Renders whichever module's content is "live" right now. Used by the
+    // control window directly, and by the presenter window whenever the
+    // control window's localStorage state changes.
+    function applyLiveState(state) {
+      const g1 = document.getElementById('disp-goal-1');
+      const g2 = document.getElementById('disp-goal-2');
+      if (state) {
+        g1.innerText = state.g1;
+        g2.innerText = state.g2;
+        renderStageContent(state.sourceType, state.contentUrl);
+      } else {
+        g1.innerText = 'Select or add a module to begin';
+        g2.innerText = '---';
+        renderStageContent('slides', 'about:blank');
+      }
+      fitGoalText();
+    }
+
+    function setLiveState(state) {
+      applyLiveState(state);
+      if (state) {
+        localStorage.setItem('classroom_live_state', JSON.stringify(state));
+      } else {
+        localStorage.removeItem('classroom_live_state');
+      }
+    }
+    // --- SOURCE TYPE SELECTOR (module form) ---
+    // The only place a module's content type is chosen. The Deck Library
+    // (and therefore Bellwork) stays Google-Slides-only by design, so the
+    // saved-decks picker only makes sense — and is only shown — for the
+    // 'slides' type.
+    let formSourceType = 'slides';
+    const SOURCE_TYPE_ORDER = ['slides', 'web', 'pdf', 'image', 'video'];
+    const SOURCE_TYPE_PLACEHOLDERS = {
+      slides: 'https://docs.google.com/.../embed',
+      web: 'https://example.com/page',
+      pdf: 'https://example.com/handout.pdf',
+      image: 'https://example.com/picture.jpg',
+      video: 'YouTube link, or https://example.com/video.mp4'
+    };
+    function setSourceType(type) {
+      formSourceType = type;
+      document.querySelectorAll('.source-opt').forEach(btn => btn.classList.toggle('active', btn.dataset.type === type));
+      const idx = SOURCE_TYPE_ORDER.indexOf(type);
+      const knob = document.getElementById('source-knob');
+      if (knob) knob.style.setProperty('--knob-angle', (-80 + idx * 40) + 'deg');
+      const urlInput = document.getElementById('content-url');
+      if (urlInput) urlInput.placeholder = SOURCE_TYPE_PLACEHOLDERS[type];
+      const deckPickerGroup = document.getElementById('deck-picker-group');
+      if (deckPickerGroup) deckPickerGroup.style.display = type === 'slides' ? 'flex' : 'none';
     }
 
     // --- DATA IMPORT/EXPORT ---
@@ -823,7 +1378,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
             localStorage.removeItem('classroom_shared_bellwork_by_day');
           }
 
-          migrateData(); // in case the backup predates ids/groups entirely
+          migrateData(); // in case the backup predates ids/groups/sourceType entirely
 
           currentIndex = -1;
           activeGroup = null;
@@ -858,13 +1413,14 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     // share link ending in /edit, same as any manually-typed link here
     // would need cleanUrl() to become embeddable. Applied once at the
     // Sync boundary so nothing downstream needs to know the data came
-    // from the planner rather than the sidebar form.
+    // from the planner rather than the sidebar form. The planner only
+    // ever produces Slides links, so every slot gets sourceType 'slides'.
     function cleanContentByDay(byDay) {
       if (!byDay) return byDay;
       const out = {};
       Object.keys(byDay).forEach(dk => {
         const slot = byDay[dk];
-        out[dk] = slot ? { ...slot, contentUrl: cleanUrl(slot.contentUrl) } : null;
+        out[dk] = slot ? { ...slot, contentUrl: cleanUrl(slot.contentUrl), sourceType: 'slides' } : null;
       });
       return out;
     }
@@ -906,7 +1462,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
               mod.contentByDay = cleanedByDay;
               updated++;
             } else {
-              modules.push({ id: generateId(), name, contentByDay: cleanedByDay });
+              modules.push({ id: generateId(), name, sourceType: 'slides', contentByDay: cleanedByDay });
               created++;
             }
           });
@@ -1131,16 +1687,16 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
         }
       });
     }
-
     // --- MODULE FUNCTIONS ---
     function saveAndSwap() {
       const name = document.getElementById('module-name').value || 'Untitled Module';
       const g1 = document.getElementById('goal-1').value || 'No level up goal specified';
       const g2 = document.getElementById('goal-2').value || 'No criteria specified';
       const contentUrl = cleanUrl(document.getElementById('content-url').value);
+      const sourceType = formSourceType;
 
       if (!contentUrl) {
-        alert('Please paste or select a valid content slide link.');
+        alert('Please paste or select a valid content link.');
         return;
       }
 
@@ -1148,11 +1704,11 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
         // Hand-editing always writes flat fields and clears contentByDay
         // (if any) — a manual save opts this module out of day-sync until
         // the next Sync Week re-adds it.
-        modules[editingIndex] = { ...modules[editingIndex], name, g1, g2, contentUrl, contentByDay: undefined };
+        modules[editingIndex] = { ...modules[editingIndex], name, g1, g2, contentUrl, sourceType, contentByDay: undefined };
         localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
         loadModule(editingIndex);
       } else {
-        modules.push({ id: generateId(), name, g1, g2, contentUrl });
+        modules.push({ id: generateId(), name, g1, g2, contentUrl, sourceType });
         localStorage.setItem('classroom_modules_v2', JSON.stringify(modules));
         loadModule(modules.length - 1);
       }
@@ -1171,13 +1727,14 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       // Saving from here always writes flat fields and drops
       // contentByDay (see saveAndSwap) — hand-editing a module opts it
       // out of day-sync until the next Sync Week re-adds it.
-      const seed = mod.contentByDay ? (resolveModuleToday(mod) || { contentUrl: '', g1: '', g2: '' }) : mod;
+      const seed = mod.contentByDay ? (resolveModuleToday(mod) || { contentUrl: '', g1: '', g2: '', sourceType: 'slides' }) : mod;
 
       document.getElementById('module-name').value = mod.name;
       document.getElementById('goal-1').value = seed.g1 || '';
       document.getElementById('goal-2').value = seed.g2 || '';
       document.getElementById('content-url').value = seed.contentUrl || '';
       document.getElementById('deck-picker').value = seed.contentUrl || '';
+      setSourceType(seed.sourceType || 'slides');
 
       document.getElementById('form-title').innerHTML = '&gt; Edit Module';
       document.getElementById('save-btn').innerText = 'Update';
@@ -1240,6 +1797,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       document.getElementById('goal-2').value = '';
       document.getElementById('content-url').value = '';
       document.getElementById('deck-picker').value = '';
+      setSourceType('slides');
       document.getElementById('form-title').innerHTML = '&gt; Create/Edit Module';
       document.getElementById('save-btn').innerText = 'Swap & Save';
       document.getElementById('cancel-btn').style.display = 'none';
@@ -1282,15 +1840,17 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       const g1 = todayContent ? todayContent.g1 : ('No lecture configured for ' + dayLabel);
       const g2 = todayContent ? todayContent.g2 : '—';
 
-      let url;
+      let url, sourceType;
       if (activeDeck === 'B') {
         const bw = resolveBellwork();
         url = bw ? bw.url : null;
+        sourceType = 'slides'; // Bellwork/Deck Library is always Google Slides
       } else {
         url = todayContent ? todayContent.contentUrl : null;
+        sourceType = todayContent ? (todayContent.sourceType || 'slides') : 'slides';
       }
 
-      setLiveState({ name: mod.name, g1, g2, contentUrl: url || 'about:blank' });
+      setLiveState({ name: mod.name, g1, g2, contentUrl: url || 'about:blank', sourceType });
       updateSwapBtn();
       renderPresets();
       updateNav();
@@ -1391,7 +1951,6 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       });
       renderGroupModulePicker();
     }
-
     // --- LECTURE GROUPS ---
     function renderGroupModulePicker() {
       const picker = document.getElementById('group-module-picker');
@@ -1580,10 +2139,33 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       if (e.key === 'classroom_autofit') {
         applyAutofitSetting();
       }
+      if (e.key === 'classroom_zoom_mode') {
+        applyZoomModeSetting();
+      }
+      if (e.key === 'classroom_brightness') {
+        applyBrightnessSetting();
+      }
+      if (e.key === 'classroom_volume') {
+        applyVolumeSetting();
+      }
     });
 
     migrateData();
     applyAutofitSetting();
+    applyZoomModeSetting();
+    applyBrightnessSetting();
+    applyVolumeSetting();
+    setSourceType('slides');
+
+    setupDragKnob(document.getElementById('brightness-knob'), { min: 60, max: 140, step: 5, get: getBrightness, set: setBrightness });
+    setupDragKnob(document.getElementById('volume-knob'), { min: 0, max: 100, step: 5, get: getVolume, set: setVolume });
+    const zoomKnobEl = document.getElementById('zoom-knob');
+    if (zoomKnobEl) {
+      zoomKnobEl.addEventListener('click', toggleZoomMode);
+      zoomKnobEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') { toggleZoomMode(); e.preventDefault(); }
+      });
+    }
 
     if (isPresenterView) {
       document.body.classList.add('presenter-view');
@@ -1601,8 +2183,9 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       }
     }
 
-    // Re-fit the slide frame whenever its wrapper's box size changes for any
-    // reason — window resize, sidebar collapse/expand, entering fullscreen.
+    // Re-fit the content frame whenever its wrapper's box size changes for
+    // any reason — window resize, sidebar collapse/expand, entering
+    // fullscreen.
     const contentFrameWrapEl = document.getElementById('content-frame-wrap');
     if (window.ResizeObserver) {
       new ResizeObserver(fitContentFrame).observe(contentFrameWrapEl);
@@ -1626,6 +2209,6 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     setTimeout(fitContentFrame, 300);
     setTimeout(fitGoalText, 50);
     setTimeout(fitGoalText, 300);
-  </script>
+</script>
 </body>
 </html>
