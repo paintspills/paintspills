@@ -233,10 +233,12 @@
     }
     #preview-day-select { font-size: 0.78rem; padding: 3px 4px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.25); background: rgba(255,255,255,0.08); color: #f3e9d8; font-family: var(--font-label); }
     #preview-day-select.preview-active { border-color: var(--danger); color: #ff8a80; font-weight: bold; }
-    #current-module-label {
-      color: #f3e9d8; letter-spacing: 0.5px; max-width: 100px; overflow: hidden;
-      text-overflow: ellipsis; white-space: nowrap;
+    #module-select {
+      font-size: 0.8rem; padding: 4px 6px; border-radius: 3px; border: 1px solid rgba(255,255,255,0.25);
+      background: rgba(255,255,255,0.08); color: #f3e9d8; font-family: var(--font-label);
+      max-width: 160px;
     }
+    #module-select:disabled { color: rgba(255,255,255,0.35); border-color: rgba(255,255,255,0.1); }
 
     /* Knob panel — Zoom / Brightness / Volume, the stage's real dials */
     #knob-panel {
@@ -518,9 +520,9 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     <button id="toggle-btn" onclick="toggleSidebar()" title="Show/hide controls (Tab)">☰ Controls</button>
 
     <div id="module-nav">
-      <button id="prev-btn" onclick="loadModule(currentIndex-1)" title="Previous module (Left arrow)">◀</button>
-      <span id="current-module-label" title="No module loaded">No module loaded</span>
-      <button id="next-btn" onclick="loadModule(currentIndex+1)" title="Next module (Right arrow)">▶</button>
+      <select id="module-select" onchange="if (this.value !== '') loadModule(parseInt(this.value, 10))" title="Choose a module to load (Left/Right arrow keys also step through the list)">
+        <option value="">No module loaded</option>
+      </select>
       <button id="swap-deck-btn" onclick="swapDeck()" title="Cycle to the next lecture / bellwork (B)">⇄ LECTURE</button>
       <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (F)">⛶</button>
       <button id="autofit-toggle-btn" onclick="toggleAutofit()" title="Shrink goal text to fit instead of scrolling">FIT: ON</button>
@@ -1922,13 +1924,15 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       updateSwapBtn();
     }
 
+    // Keeps the top-of-screen module <select>'s selection/disabled state
+    // matching currentIndex — its actual <option> list is rebuilt by
+    // renderPresets() below (which calls this afterward), since the two
+    // need to change together whenever the module list itself changes.
     function updateNav() {
-      document.getElementById('prev-btn').disabled = currentIndex <= 0;
-      document.getElementById('next-btn').disabled = currentIndex < 0 || currentIndex >= modules.length - 1;
-      const label = document.getElementById('current-module-label');
-      const name = (currentIndex >= 0 && modules[currentIndex]) ? modules[currentIndex].name : 'No module loaded';
-      label.textContent = name;
-      label.title = name;
+      const select = document.getElementById('module-select');
+      if (!select) return;
+      select.disabled = modules.length === 0;
+      select.value = currentIndex >= 0 ? String(currentIndex) : '';
     }
 
     function renderPresets() {
@@ -1950,6 +1954,17 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
         list.appendChild(item);
       });
       renderGroupModulePicker();
+
+      const select = document.getElementById('module-select');
+      if (select) {
+        select.innerHTML = '';
+        if (modules.length === 0) {
+          select.appendChild(new Option('No module loaded', ''));
+        } else {
+          modules.forEach((mod, index) => select.appendChild(new Option(mod.name, String(index))));
+        }
+        updateNav();
+      }
     }
     // --- LECTURE GROUPS ---
     function renderGroupModulePicker() {
