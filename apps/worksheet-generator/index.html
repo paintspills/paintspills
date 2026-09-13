@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Technique Worksheet Generator</title>
+<script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f7fb; --panel:#fff; --ink:#1f2430; --muted:#667085; --line:#dde1ea;
+    --accent:#6846f5; --accent-2:#efeaff; --good:#12b76a; --shadow:0 10px 30px rgba(24,30,44,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%;overflow:hidden} body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+  button,input,select,textarea{font:inherit}
+  .app{height:calc(100vh - 34px);display:grid;grid-template-rows:auto 1fr;overflow:hidden;min-width:0}
+  header{background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:flex-start;gap:14px;padding:12px 18px;z-index:3;min-width:0;flex-wrap:wrap}
+  .logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,#7155ff,#4b31d9);display:grid;place-items:center;color:#fff;font-size:24px;font-weight:900}
+  .titleblock{min-width:180px;flex:0 1 auto}.appname{font-weight:800;font-size:20px}.tagline{color:var(--muted);font-size:13px;margin-top:2px}
+  .toolbar{display:flex;gap:10px;align-items:center;flex:1;min-width:0;flex-wrap:wrap}.spacer{flex:1 1 16px}
+  .btn{border:1px solid var(--line);background:#fff;color:#1f2430;padding:9px 13px;border-radius:10px;cursor:pointer;display:inline-flex;gap:8px;align-items:center;font-weight:650;white-space:nowrap;flex:0 0 auto}
+  .btn:hover{border-color:#c8ccda;background:#fbfbfe}.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}.btn.ghost{background:transparent}
+  main{display:grid;grid-template-columns:minmax(230px,280px) minmax(0,1fr) minmax(280px,320px);overflow:hidden;min-width:0}
+  aside,.inspector{background:#fff;border-right:1px solid var(--line);overflow:auto;min-width:0}.inspector{border-right:0;border-left:1px solid var(--line)}
+  .sidehead{padding:16px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}.sidehead h3{font-size:13px;letter-spacing:.04em;color:#475467;margin:0;text-transform:uppercase}
+  .badge{background:#eef0f5;color:#475467;border-radius:99px;padding:2px 8px;font-size:12px}
+  .lib-search{padding:12px 16px 4px}.lib-search .search{display:flex;align-items:center;gap:8px;border:1px solid var(--line);background:#fff;border-radius:10px;padding:8px 10px;width:100%;color:var(--muted)}.lib-search .search input{border:0;outline:0;width:100%;background:transparent}
+  .lib-list{padding:8px 12px 16px;display:flex;flex-direction:column;gap:10px}
+  .libitem{border:1px solid var(--line);background:#fff;border-radius:11px;padding:9px;display:flex;flex-direction:column;gap:8px}
+  .libitem-top{display:grid;grid-template-columns:64px 1fr;gap:10px;align-items:center;min-width:0}
+  .thumb{width:64px;height:42px;border:1px solid #d4d8e4;background:#f9fafb;border-radius:5px;overflow:hidden}
+  .libname{font-weight:750;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.libdate{font-size:12px;color:var(--muted);margin-top:2px}
+  .libitem-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .empty-hint{color:#667085;padding:16px;font-size:13px;line-height:1.5}
+  .workspace{display:grid;grid-template-rows:auto 1fr;overflow:hidden;background:#f8f9fd;min-width:0}
+  .canvasbar{border-bottom:1px solid var(--line);display:flex;align-items:center;gap:10px;padding:10px 18px;background:#fff;min-width:0;flex-wrap:wrap}
+  .pagewrap{overflow:auto;padding:20px;display:flex;justify-content:center;align-items:flex-start;min-width:0}
+  .paper{background:#fff;width:720px;max-width:100%;aspect-ratio:8.5/11;box-shadow:var(--shadow);border:1px solid #bcc1cd;position:relative;flex:0 0 auto}.paper svg{width:100%;height:100%;display:block}
+  .inspector{padding:0}.tabs{height:54px;display:grid;grid-template-columns:1fr 1fr 1fr;border-bottom:1px solid var(--line)}.tab{display:grid;place-items:center;font-weight:750;color:#475467;cursor:pointer;user-select:none}.tab:hover{background:#f9fafb}.tab.active{color:var(--accent);border-bottom:3px solid var(--accent)}
+  .form{padding:16px;display:flex;flex-direction:column;gap:14px;min-width:0}.field{min-width:0}.field label{display:block;font-size:12px;font-weight:800;color:#344054;margin-bottom:7px}.hint{font-size:11px;color:var(--muted);line-height:1.35;margin-top:6px}.hint-warn{color:var(--accent);font-weight:700}.field textarea{resize:vertical;min-height:92px}.field input,.field select,.field textarea,#tagInput{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 10px;background:#fff;outline:none}.row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.row > *{min-width:0}.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:13px;font-weight:700;color:#344054}.toggle{width:42px;height:24px;border-radius:999px;background:#d0d5dd;position:relative;cursor:pointer;flex:0 0 auto}.toggle::after{content:"";width:18px;height:18px;border-radius:99px;background:#fff;position:absolute;top:3px;left:3px;box-shadow:0 1px 3px rgba(0,0,0,.2)}.toggle.on{background:var(--accent)}.toggle.on::after{left:19px}
+  .chips{display:flex;gap:6px;flex-wrap:wrap}.chip{font-size:12px;padding:6px 8px;border-radius:7px;background:var(--accent-2);color:#4b31d9;border:1px solid #ded5ff}.chip .x{opacity:.65;margin-left:4px;cursor:pointer}.chip .x:hover{opacity:1}
+  .presetrow{display:flex;gap:8px;flex-wrap:wrap}
+  .rowbuilder{border:1px solid var(--line);border-radius:10px;background:#fbfcff;padding:8px;display:flex;flex-direction:column;gap:7px;min-width:0}.layoutrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto auto auto auto;align-items:center;gap:6px;border:1px solid var(--line);border-radius:8px;background:#fff;padding:7px;font-size:12px;min-width:0}.layoutrow[draggable="true"]{cursor:grab}.layoutrow > *{min-width:0}.draghandle{color:#98a2b3;font-weight:900}.countpill{font-weight:800;color:#344054;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.iconbtn{border:1px solid var(--line);background:#fff;border-radius:6px;padding:3px 6px;cursor:pointer;flex:0 0 auto}.iconbtn:hover{background:#f2f4f7}.builderactions{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}.patternreadout{font-size:11px;color:var(--muted)}
+  .smallbtn{border:1px solid var(--line);border-radius:7px;background:#fff;padding:4px 8px;font-size:12px;cursor:pointer;white-space:nowrap}.smallbtn:hover{background:#f2f4f7}.smallbtn:disabled{opacity:.4;cursor:default}.loadbtn{background:var(--accent-2);border-color:#c4b5fd;color:#4b31d9;font-weight:700}
+  .statusline{height:34px;font-size:12px;color:var(--muted);padding:8px 16px;border-top:1px solid var(--line);background:#fff;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}.printHint{font-size:12px;color:#475467}.sr-only{position:absolute;left:-9999px}
+  @media(max-width:1500px){main{grid-template-columns:220px minmax(0,1fr) 280px}}
+  @media(max-width:1250px){main{grid-template-columns:210px minmax(0,1fr) 260px}}
+  @media(max-width:1100px){main{grid-template-columns:220px 1fr}.inspector{display:none}}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">✎</div>
+    <div class="titleblock"><div class="appname">Technique Worksheet Generator</div><div class="tagline">Create. Customize. Print. Teach.</div></div>
+    <div class="toolbar">
+      <button class="btn primary" id="newBtn">＋ New Worksheet</button>
+      <button class="btn" id="saveBtn">💾 Add to Library</button>
+      <button class="btn" id="pdfBtn">⬇ Export Vector PDF</button>
+      <button class="btn" id="saveLibraryBtn">📁 Save Library File</button>
+      <label class="btn" for="loadLibraryInput">📂 Load Library File</label><input id="loadLibraryInput" class="sr-only" type="file" accept="application/json,.json">
+      <label class="btn" for="loadWorksheetInput">📄 Load Worksheet</label><input id="loadWorksheetInput" class="sr-only" type="file" accept="application/json,.json">
+      <button class="btn" id="saveWorksheetBtn">💾 Save Worksheet File</button>
+      <div class="spacer"></div>
+    </div>
+  </header>
+  <main>
+    <aside>
+      <div class="sidehead"><h3>My Library</h3><span class="badge" id="libCount">0</span></div>
+      <div class="lib-search"><div class="search">🔎 <input id="search" placeholder="Search worksheets..."></div></div>
+      <div class="lib-list" id="libraryList"></div>
+    </aside>
+    <section class="workspace">
+      <div class="canvasbar">
+        <button class="smallbtn" id="undoBtn">↶</button><button class="smallbtn" id="redoBtn">↷</button>
+        <select id="fitSelect"><option>Fit to Page</option><option>Actual Size</option></select>
+        <span class="spacer"></span>
+        <span class="printHint">Letter-size vector PDF: 8.5 × 11 in</span>
+        <span class="spacer"></span><button class="smallbtn" id="zoomOut">−</button><span id="zoomLabel">83%</span><button class="smallbtn" id="zoomIn">＋</button>
+      </div>
+      <div class="pagewrap"><div class="paper" id="paper"></div></div>
+    </section>
+    <section class="inspector">
+      <div class="tabs"><div class="tab active" data-tab="customize">Customize</div><div class="tab" data-tab="layout">Layout</div><div class="tab" data-tab="options">Options</div></div>
+      <!-- Tab: Customize -->
+      <div class="form tab-panel" id="panelCustomize">
+        <div class="field"><label>Worksheet Title</label><input id="titleInput"></div>
+        <div class="field"><label>Page Size</label><select id="pageSize"><option>Letter (8.5 × 11 in)</option></select></div>
+        <div class="field"><label>Instructions</label><textarea id="instructionsInput"></textarea></div>
+        <div class="toggle-row"><span>Show Name / Date</span><div id="nameToggle" class="toggle on"></div></div>
+        <div class="toggle-row"><span>Show Period</span><div id="periodToggle" class="toggle on"></div></div>
+        <div class="field"><label>Header Layout</label><select id="headerLayout"><option value="center">Centered title, name/date on top</option><option value="left-block">Title + instructions left, name/date/period right</option></select></div>
+        <div class="toggle-row"><span>Region Labels</span><div id="labelToggle" class="toggle on"></div></div>
+        <div class="field"><label>Edit Region Labels</label><textarea id="regionsInput" placeholder="One label per line"></textarea><div class="hint">One label per line. These become the numbered region labels on the worksheet and PDF.</div><div class="hint" id="regionCountHint"></div></div>
+      </div>
+      <!-- Tab: Layout -->
+      <div class="form tab-panel" id="panelLayout" style="display:none">
+        <div class="field"><label>Quick Patterns</label><div class="presetrow"><button class="smallbtn" id="preset3x4">3 × 4 Grid</button><button class="smallbtn" id="preset2x3">2 × 3 Grid</button><button class="smallbtn" id="preset4x4">4 × 4 Grid</button></div><div class="hint">Applies a canned row pattern to the Custom Row Pattern field below — you can keep adjusting it afterward.</div></div>
+        <div class="field"><label>Box Size</label><select id="boxSize"><option>Large</option><option>Medium</option><option>Small</option></select></div>
+        <div class="field"><label>Custom Row Pattern</label><input id="rowPatternInput" placeholder="Example: 2,3,1"><div class="hint">Use numbers separated by commas. Example: <strong>2,3,1</strong> makes row 1 two boxes wide, row 2 three boxes, row 3 one full-width box. Up to 10 rows.</div></div>
+        <div class="field"><label>Drag-and-Drop Row Builder</label><div id="layoutBuilder" class="rowbuilder"></div><div class="hint">Drag rows to reorder. Use + or − to change how many boxes are in that row.</div></div>
+      </div>
+      <!-- Tab: Options -->
+      <div class="form tab-panel" id="panelOptions" style="display:none">
+        <div class="field"><label>Status</label><select id="statusSelect"><option>Draft</option><option selected>Published</option><option>Archived</option></select></div>
+        <div class="field"><label>Tags</label><div class="chips" id="tagChips"></div><input id="tagInput" placeholder="Add a tag and press Enter" style="margin-top:8px"></div>
+        <div class="field"><label>Undo / Redo</label><div style="display:flex;gap:8px"><button class="smallbtn" id="undoBtnInsp">↶ Undo</button><button class="smallbtn" id="redoBtnInsp">↷ Redo</button></div><div class="hint">Step back or forward through your recent changes.</div></div>
+      </div>
+    </section>
+  </main>
+</div>
+<div class="statusline" id="statusLine">Ready.</div>
+<script>
+const W=612,H=792,MAX_ROWS=10;
+let state={title:'Untitled Worksheet',instructions:'',regions:['Practice Area'],showName:true,showPeriod:true,showLabels:true,headerLayout:'left-block',rowPattern:'1',boxSize:'Large',status:'Draft',tags:[],zoom:83};
+let library=JSON.parse(localStorage.getItem('artWorksheetLibrary')||'[]');
+const $=id=>document.getElementById(id);
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function wrapText(text,max=70){const words=String(text).split(/\s+/);let lines=[],line='';for(const w of words){if((line+' '+w).trim().length>max){lines.push(line);line=w}else line=(line+' '+w).trim()} if(line)lines.push(line);return lines;}
+
+// ── Worksheet import validation / normalization ─────────────────────────────
+function looksLikeWorksheet(o){return !!o && typeof o==='object' && ('title' in o || 'regions' in o || 'instructions' in o);}
+function normalizeWorksheet(ws){
+  ws=(ws&&typeof ws==='object')?ws:{};
+  return {
+    title: (typeof ws.title==='string' && ws.title.trim()) ? ws.title : 'Untitled Worksheet',
+    instructions: typeof ws.instructions==='string' ? ws.instructions : '',
+    regions: Array.isArray(ws.regions) ? ws.regions.filter(r=>typeof r==='string') : [],
+    rowPattern: (typeof ws.rowPattern==='string' && ws.rowPattern.trim()) ? ws.rowPattern : '1',
+    boxSize: ['Large','Medium','Small'].includes(ws.boxSize) ? ws.boxSize : 'Large',
+    headerLayout: ws.headerLayout==='center' ? 'center' : 'left-block',
+    showName: ws.showName!==false,
+    showPeriod: ws.showPeriod!==false,
+    showLabels: ws.showLabels!==false,
+    status: ['Draft','Published','Archived'].includes(ws.status) ? ws.status : 'Draft',
+    tags: Array.isArray(ws.tags) ? ws.tags.filter(t=>typeof t==='string') : [],
+    zoom: typeof ws.zoom==='number' ? ws.zoom : 83,
+    date: typeof ws.date==='string' ? ws.date : null,
+  };
+}
+
+function syncForm(){
+  $('titleInput').value=state.title;
+  $('instructionsInput').value=state.instructions;
+  $('regionsInput').value=(state.regions||[]).join('\n');
+  $('rowPatternInput').value=state.rowPattern||'1';
+  $('statusSelect').value=state.status;
+  $('boxSize').value=state.boxSize||'Large';
+  $('headerLayout').value=state.headerLayout||'left-block';
+  $('nameToggle').classList.toggle('on',state.showName);
+  $('periodToggle').classList.toggle('on',state.showPeriod!==false);
+  $('labelToggle').classList.toggle('on',state.showLabels);
+  renderTagChips();
+  renderLayoutBuilder();
+}
+function renderTagChips(){
+  $('tagChips').innerHTML=(state.tags||[]).map((t,i)=>`<span class="chip">${esc(t)} <span class="x" data-tagidx="${i}">×</span></span>`).join('');
+  $('tagChips').querySelectorAll('[data-tagidx]').forEach(x=>x.onclick=()=>{state.tags.splice(+x.dataset.tagidx,1);renderTagChips();pushHistory();});
+}
+$('tagInput').addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();
+    const v=$('tagInput').value.trim();
+    if(v){ state.tags=[...(state.tags||[]),v]; $('tagInput').value=''; renderTagChips(); pushHistory(); }
+  }
+});
+
+function worksheetSvg(mini=false){
+  const textSize=mini?10:12;
+  let s=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg"><rect width="${W}" height="${H}" fill="white"/><style>.t{font-family:Arial,sans-serif;fill:#111}.title{font:bold 24px Arial,sans-serif}.lab{font:bold ${textSize}px Arial,sans-serif}.small{font:${textSize}px Arial,sans-serif}</style>`;
+  if(state.headerLayout==='left-block'){
+    s+=`<text class="t title" x="64" y="72">${esc(state.title)}</text>`;
+    wrapText(state.instructions,48).slice(0,4).forEach((ln,i)=>s+=`<text class="t small" x="64" y="${98+i*13}">${esc(ln)}</text>`);
+    if(state.showName){s+=`<text class="t small" x="395" y="62">Name:</text><line x1="445" y1="62" x2="555" y2="62" stroke="#111"/><text class="t small" x="395" y="88">Date:</text><line x1="445" y1="88" x2="555" y2="88" stroke="#111"/>`; if(state.showPeriod!==false)s+=`<text class="t small" x="395" y="114">Period:</text><line x1="445" y1="114" x2="555" y2="114" stroke="#111"/>`;}
+  } else {
+    if(state.showName){s+=`<text class="t small" x="64" y="70">Name:</text><line x1="105" y1="70" x2="230" y2="70" stroke="#111"/><text class="t small" x="330" y="70">Date:</text><line x1="370" y1="70" x2="455" y2="70" stroke="#111"/>`; if(state.showPeriod!==false)s+=`<text class="t small" x="470" y="70">Period:</text><line x1="520" y1="70" x2="565" y2="70" stroke="#111"/>`;}
+    s+=`<text class="t title" x="306" y="110" text-anchor="middle">${esc(state.title)}</text>`;
+    wrapText(state.instructions,62).slice(0,4).forEach((ln,i)=>s+=`<text class="t small" x="306" y="${138+i*14}" text-anchor="middle">${esc(ln)}</text>`);
+  }
+  const regions=getRegions(); regions.forEach((r,i)=>{s+=drawRegionSvg(r,i)});
+  return s+'</svg>';
+}
+function parsePattern(){let raw=(state.rowPattern||'').trim(); let nums=raw.split(/[,\s]+/).map(n=>parseInt(n,10)).filter(n=>Number.isFinite(n)&&n>0&&n<=8).slice(0,MAX_ROWS); return nums.length?nums:[1];}
+function setPatternArray(arr,msg){arr=arr.slice(0,MAX_ROWS); state.rowPattern=arr.join(','); $('rowPatternInput').value=state.rowPattern; renderPreview(); renderLayoutBuilder(); pushHistory(); if(msg)setStatus(msg);}
+function renderLayoutBuilder(){
+  const el=$('layoutBuilder'); if(!el)return;
+  const arr=parsePattern();
+  el.innerHTML=arr.map((cols,i)=>`<div class="layoutrow" draggable="true" data-row="${i}"><span class="draghandle">⋮⋮</span><span>Row ${i+1}</span><button class="iconbtn" data-dec="${i}">−</button><span class="countpill">${cols} box${cols===1?'':'es'}</span><button class="iconbtn" data-inc="${i}">＋</button><button class="iconbtn" data-rem="${i}">×</button></div>`).join('')+`<div class="builderactions"><button class="smallbtn" id="addLayoutRow"${arr.length>=MAX_ROWS?' disabled':''}>＋ Add Row</button><span class="patternreadout">Pattern: ${arr.join(',')}</span></div>`;
+  el.querySelectorAll('[data-inc]').forEach(b=>b.onclick=()=>{const a=parsePattern();a[+b.dataset.inc]=Math.min(8,a[+b.dataset.inc]+1);setPatternArray(a,'Changed row box count.')});
+  el.querySelectorAll('[data-dec]').forEach(b=>b.onclick=()=>{const a=parsePattern();a[+b.dataset.dec]=Math.max(1,a[+b.dataset.dec]-1);setPatternArray(a,'Changed row box count.')});
+  el.querySelectorAll('[data-rem]').forEach(b=>b.onclick=()=>{const a=parsePattern(); if(a.length>1){a.splice(+b.dataset.rem,1);setPatternArray(a,'Removed layout row.')}});
+  $('addLayoutRow').onclick=()=>{const a=parsePattern(); if(a.length>=MAX_ROWS){setStatus(`Maximum of ${MAX_ROWS} rows reached.`);return;} a.push(2);setPatternArray(a,'Added layout row.')};
+  let dragIndex=null;
+  el.querySelectorAll('.layoutrow').forEach(row=>{row.ondragstart=e=>{dragIndex=+row.dataset.row;e.dataTransfer.effectAllowed='move'}; row.ondragover=e=>e.preventDefault(); row.ondrop=e=>{e.preventDefault();const to=+row.dataset.row;const a=parsePattern();const [m]=a.splice(dragIndex,1);a.splice(to,0,m);setPatternArray(a,'Reordered layout rows.')}});
+}
+
+function makeGridRegions(pattern){
+  const pageX=60,pageW=510,gap=12;
+  const startY=state.headerLayout==='left-block'?155:180;
+  const bottomY=730;
+  const rows=pattern.length;
+  const size=state.boxSize||'Large';
+  const gapY=size==='Small'?8:size==='Medium'?10:12;
+  const totalGap=gapY*(rows-1);
+  const available=(bottomY-startY-totalGap)/rows;
+  const cap=size==='Small'?60:size==='Medium'?90:Infinity;
+  const rowH=Math.max(34,Math.min(available,cap));
+  let regs=[];
+  pattern.forEach((cols,ri)=>{const cellW=(pageW-gap*(cols-1))/cols; const y=startY+ri*(rowH+gapY); for(let c=0;c<cols;c++)regs.push({x:pageX+c*(cellW+gap),y,w:cellW,h:rowH});});
+  return regs;
+}
+function getRegions(){return makeGridRegions(parsePattern());}
+function drawRegionSvg(r,i){
+  const hasLabel=state.showLabels;
+  const labelH=hasLabel?16:0;
+  const boxY=r.y+labelH, boxH=r.h-labelH;
+  let s='';
+  if(hasLabel)s+=`<text class="t lab" x="${r.x}" y="${r.y+11}">${esc(`${i+1}. ${state.regions[i]||'Practice'}`)}</text>`;
+  s+=`<rect x="${r.x}" y="${boxY}" width="${r.w}" height="${boxH}" fill="none" stroke="#111" stroke-width="1.2"/>`;
+  return s;
+}
+function applyPaperSizing(){
+  const wrap=document.querySelector('.pagewrap'); const paper=$('paper'); if(!wrap||!paper)return;
+  const base=720;
+  const fitMode=$('fitSelect').value;
+  let width;
+  if(fitMode==='Actual Size'){
+    width=base;
+    state.zoom=100;
+  } else {
+    const zoom=Math.max(40,Math.min(200,state.zoom||100));
+    const available=Math.max(280,wrap.clientWidth-40);
+    width=Math.min(base*zoom/100, available);
+  }
+  $('zoomLabel').textContent=`${Math.round(width/base*100)}%`;
+  paper.style.width=`${Math.round(width)}px`;
+  paper.style.height='';
+}
+function renderPreview(){
+  $('paper').innerHTML=worksheetSvg();
+  applyPaperSizing();
+  updateRegionHint();
+}
+function updateRegionHint(){
+  const hint=$('regionCountHint'); if(!hint)return;
+  const boxCount=parsePattern().reduce((a,b)=>a+b,0);
+  const labelCount=(state.regions||[]).length;
+  hint.classList.remove('hint-warn');
+  if(labelCount===0){
+    hint.textContent=`${boxCount} box${boxCount===1?'':'es'} in the current layout — no labels defined yet.`;
+  } else if(labelCount>boxCount){
+    hint.textContent=`${labelCount} labels defined — only ${boxCount} box${boxCount===1?'':'es'} in the current layout. Add more boxes in the Layout tab to show the rest.`;
+    hint.classList.add('hint-warn');
+  } else if(labelCount<boxCount){
+    hint.textContent=`${labelCount} of ${boxCount} boxes labeled — the remaining ${boxCount-labelCount} will show as "Practice."`;
+  } else {
+    hint.textContent=`${labelCount} label${labelCount===1?'':'s'} match${labelCount===1?'es':''} ${boxCount} box${boxCount===1?'':'es'} exactly.`;
+  }
+}
+function thumbnailSvg(item){const old=state; state=normalizeWorksheet(item); const svg=worksheetSvg(true); state=old; return svg;}
+function renderLibrary(){
+  $('libCount').textContent=library.length;
+  const q=$('search').value.toLowerCase();
+  const items=library.filter(x=>!q||(x.title||'').toLowerCase().includes(q)||(x.tags||[]).join(' ').toLowerCase().includes(q));
+  $('libraryList').innerHTML = items.length ? items.map(item=>{
+    const idx=library.indexOf(item);
+    return `<div class="libitem">
+      <div class="libitem-top"><div class="thumb">${thumbnailSvg(item)}</div><div><div class="libname" title="${esc(item.title||'Untitled Worksheet')}">${esc(item.title||'Untitled Worksheet')}</div><div class="libdate">${esc(item.date||'Saved worksheet')}</div></div></div>
+      <div class="libitem-actions"><button class="smallbtn loadbtn" data-load="${idx}">↩ Load</button><button class="smallbtn" data-dup="${idx}">⧉ Duplicate</button><button class="smallbtn" data-del="${idx}">🗑 Delete</button></div>
+    </div>`;
+  }).join('') : '<p class="empty-hint">No saved worksheets yet. Build one and click “Add to Library,” or Load a Library File to import your existing set.</p>';
+  document.querySelectorAll('[data-load]').forEach(b=>b.onclick=()=>{state=normalizeWorksheet(library[+b.dataset.load]);syncForm();renderAll();pushHistory();setStatus('Loaded: '+state.title)});
+  document.querySelectorAll('[data-dup]').forEach(b=>b.onclick=()=>{const src=library[+b.dataset.dup]; const copy={...normalizeWorksheet(src),title:(src.title||'Untitled Worksheet')+' Copy',date:new Date().toLocaleDateString()}; library.unshift(copy); persist(); renderLibrary(); setStatus('Duplicated "'+(src.title||'Untitled Worksheet')+'."')});
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{if(confirm('Delete this worksheet from the library?')){library.splice(+b.dataset.del,1);persist();renderLibrary();}});
+}
+function renderAll(){syncForm();renderPreview();renderLibrary();}
+function persist(){localStorage.setItem('artWorksheetLibrary',JSON.stringify(library));}
+function setStatus(msg){$('statusLine').textContent=msg;}
+function collectForm(){
+  state.title=$('titleInput').value||'Untitled Worksheet';
+  state.instructions=$('instructionsInput').value;
+  state.regions=$('regionsInput').value.split(/\n+/).map(s=>s.trim()).filter(Boolean);
+  state.rowPattern=$('rowPatternInput').value||'1';
+  state.boxSize=$('boxSize').value;
+  state.headerLayout=$('headerLayout').value;
+  state.status=$('statusSelect').value;
+}
+['titleInput','instructionsInput','regionsInput','statusSelect','boxSize','headerLayout'].forEach(id=>{const el=$(id); el.addEventListener('input',()=>{collectForm();renderPreview();}); el.addEventListener('change',()=>{collectForm();renderPreview();pushHistory();});});
+$('rowPatternInput').addEventListener('input',()=>{state.rowPattern=$('rowPatternInput').value||'1'; collectForm(); renderPreview(); renderLayoutBuilder();});
+$('rowPatternInput').addEventListener('change',()=>{pushHistory();});
+$('preset3x4').onclick=()=>setPatternArray([3,3,3,3],'Applied 3×4 grid.');
+$('preset2x3').onclick=()=>setPatternArray([2,2,2],'Applied 2×3 grid.');
+$('preset4x4').onclick=()=>setPatternArray([4,4,4,4],'Applied 4×4 grid.');
+$('nameToggle').onclick=()=>{state.showName=!state.showName;renderAll();pushHistory();};
+$('periodToggle').onclick=()=>{state.showPeriod=state.showPeriod===false;renderAll();pushHistory();};
+$('labelToggle').onclick=()=>{state.showLabels=!state.showLabels;renderAll();pushHistory();};
+$('zoomIn').onclick=()=>{state.zoom=Math.min(200,(state.zoom||100)+10); applyPaperSizing();}; $('zoomOut').onclick=()=>{state.zoom=Math.max(40,(state.zoom||100)-10); applyPaperSizing();}; $('fitSelect').onchange=()=>applyPaperSizing(); window.addEventListener('resize',applyPaperSizing);
+$('newBtn').onclick=()=>{state={title:'Untitled Worksheet',instructions:'',regions:['Practice Area'],showName:true,showPeriod:true,showLabels:true,headerLayout:'left-block',rowPattern:'1',boxSize:'Large',status:'Draft',tags:[],zoom:state.zoom||83};syncForm();renderAll();pushHistory();setStatus('Started a blank worksheet.')};
+$('saveBtn').onclick=()=>{collectForm();library.unshift({...state,date:new Date().toLocaleDateString()});persist();renderLibrary();setStatus('Added worksheet to local library. Use Save Library File for a real backup.')};
+$('saveLibraryBtn').onclick=()=>{const blob=new Blob([JSON.stringify(library,null,2)],{type:'application/json'});downloadBlob(blob,'art-worksheet-library.json')};
+// ── Undo / Redo ──────────────────────────────────────────────────────────
+let history=[],historyIndex=-1,_suppressHistory=false;
+function pushHistory(){if(_suppressHistory)return; const snap=JSON.stringify(state); if(history[historyIndex]===snap)return; history=history.slice(0,historyIndex+1); history.push(snap); historyIndex=history.length-1; if(history.length>60)history.shift(); updateUndoRedoBtns();}
+function undoHistory(){if(historyIndex<=0)return; historyIndex--; _suppressHistory=true; state=JSON.parse(history[historyIndex]); syncForm(); renderAll(); _suppressHistory=false; updateUndoRedoBtns(); setStatus('Undone.');}
+function redoHistory(){if(historyIndex>=history.length-1)return; historyIndex++; _suppressHistory=true; state=JSON.parse(history[historyIndex]); syncForm(); renderAll(); _suppressHistory=false; updateUndoRedoBtns(); setStatus('Redone.');}
+function updateUndoRedoBtns(){['undoBtn','undoBtnInsp'].forEach(id=>{const b=$(id);if(b)b.disabled=historyIndex<=0;}); ['redoBtn','redoBtnInsp'].forEach(id=>{const b=$(id);if(b)b.disabled=historyIndex>=history.length-1;});}
+$('undoBtnInsp') && ($('undoBtnInsp').onclick=undoHistory); $('redoBtnInsp') && ($('redoBtnInsp').onclick=redoHistory);
+$('undoBtn').onclick=undoHistory; $('redoBtn').onclick=redoHistory;
+
+// ── Tab switching ─────────────────────────────────────────────────────────
+document.querySelectorAll('.tab[data-tab]').forEach(tab=>{tab.onclick=()=>{document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); ['panelCustomize','panelLayout','panelOptions'].forEach(p=>{const el=$(p);if(el)el.style.display='none';}); const panel=$('panel'+tab.dataset.tab.charAt(0).toUpperCase()+tab.dataset.tab.slice(1)); if(panel)panel.style.display='flex';};});
+
+// ── Load / Save single worksheet ─────────────────────────────────────────
+$('saveWorksheetBtn').onclick=()=>{collectForm();const blob=new Blob([JSON.stringify({...state,_type:'art-worksheet',date:new Date().toLocaleDateString()},null,2)],{type:'application/json'});downloadBlob(blob,safeFile(state.title)+'.worksheet.json');setStatus('Saved worksheet file.');};
+$('loadWorksheetInput').onchange=e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const ws=JSON.parse(reader.result);
+      if(!looksLikeWorksheet(ws))throw new Error('not a worksheet');
+      state=normalizeWorksheet(ws);
+      syncForm();renderAll();pushHistory();
+      setStatus('Loaded worksheet: '+state.title);
+    }catch(err){alert('This does not look like a valid worksheet JSON file.');}
+  };
+  reader.readAsText(file); e.target.value='';
+};
+$('loadLibraryInput').onchange=e=>{
+  const file=e.target.files[0]; if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const parsed=JSON.parse(reader.result);
+      if(!Array.isArray(parsed))throw new Error('not an array');
+      library=parsed.filter(looksLikeWorksheet).map(normalizeWorksheet);
+      persist(); renderLibrary();
+      setStatus(`Loaded library file (${library.length} worksheet${library.length===1?'':'s'}).`);
+    }catch(err){alert('This does not look like a worksheet library JSON file.');}
+  };
+  reader.readAsText(file); e.target.value='';
+};
+$('search').oninput=renderLibrary;
+function downloadBlob(blob,filename){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
+function safeFile(s){return (s||'worksheet').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/(^-|-$)/g,'')}
+$('pdfBtn').onclick=()=>exportPdf();
+function exportPdf(){
+  collectForm();
+  if(!window.jspdf){alert('PDF library did not load. Check internet access or use browser print.');return;}
+  const {jsPDF}=window.jspdf;
+  const doc=new jsPDF({orientation:'portrait',unit:'pt',format:'letter'});
+  drawPdfPage(doc);
+  doc.save(`${safeFile(state.title)}.pdf`);
+  setStatus('Exported letter-size vector PDF.');
+}
+function drawPdfPage(doc){
+  doc.setDrawColor(0); doc.setTextColor(20); doc.setLineWidth(1.2); doc.setFont('helvetica','normal'); doc.setFontSize(11);
+  if(state.headerLayout==='left-block'){
+    doc.setFont('helvetica','bold');doc.setFontSize(22);doc.text(state.title,64,72);
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5); wrapText(state.instructions,58).slice(0,4).forEach((ln,i)=>doc.text(ln,64,98+i*13));
+    if(state.showName){doc.setFontSize(11);doc.text('Name:',395,62);doc.line(445,62,555,62);doc.text('Date:',395,88);doc.line(445,88,555,88); if(state.showPeriod!==false){doc.text('Period:',395,114);doc.line(445,114,555,114);}}
+  } else {
+    if(state.showName){doc.text('Name:',64,70);doc.line(105,70,230,70);doc.text('Date:',330,70);doc.line(370,70,455,70); if(state.showPeriod!==false){doc.text('Period:',470,70);doc.line(520,70,565,70);}}
+    doc.setFont('helvetica','bold');doc.setFontSize(22);doc.text(state.title,306,110,{align:'center'});
+    doc.setFont('helvetica','normal');doc.setFontSize(10.5); wrapText(state.instructions,72).slice(0,4).forEach((ln,i)=>doc.text(ln,306,138+i*14,{align:'center'}));
+  }
+  getRegions().forEach((r,i)=>drawPdfRegion(doc,r,i));
+}
+function drawPdfRegion(doc,r,i){
+  const hasLabel=state.showLabels;
+  const labelH=hasLabel?16:0;
+  const boxY=r.y+labelH, boxH=r.h-labelH;
+  if(hasLabel){doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text(`${i+1}. ${state.regions[i]||'Practice'}`,r.x,r.y+11);}
+  doc.setFont('helvetica','normal');
+  doc.setLineWidth(1); doc.rect(r.x,boxY,r.w,boxH);
+}
+renderAll();
+applyPaperSizing();
+pushHistory();
+updateUndoRedoBtns();
+</script>
+</body>
+</html>
