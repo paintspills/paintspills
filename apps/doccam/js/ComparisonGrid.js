@@ -7,20 +7,29 @@ import { AnnotationLayer } from './AnnotationLayer.js';
 
 export const GRID_PRESETS = [1, 2, 4, 6, 8, 9];
 
+const DEFAULT_LABEL_PREFIX = 'Image';
+
 export class ComparisonGrid {
   constructor() {
     this.size = 0;
     this.slots = [];
     this.nextIndex = 0;
     this.activeSlotIndex = -1;
+    this.labelPrefix = DEFAULT_LABEL_PREFIX;
   }
 
-  start(size) {
+  // `labelPrefix` replaces the word "Image" in auto-generated labels
+  // ("Image 1", "Image 2", …) — e.g. "Example" → "Example 1", "Example 2".
+  // Omit it (or pass '') to keep whatever prefix was last used, defaulting
+  // to "Image" the first time.
+  start(size, labelPrefix) {
     this.size = size;
     this.nextIndex = 0;
     this.activeSlotIndex = -1;
+    if (labelPrefix) this.labelPrefix = labelPrefix;
+    const prefix = this.labelPrefix || DEFAULT_LABEL_PREFIX;
     this.slots = Array.from({ length: size }, (_, i) => ({
-      label: `Image ${i + 1}`,
+      label: `${prefix} ${i + 1}`,
       customLabel: false,
       image: null, // ImageBitmap
       aspect: 16 / 9,
@@ -28,8 +37,8 @@ export class ComparisonGrid {
     }));
   }
 
-  newSet() {
-    this.start(this.size);
+  newSet(labelPrefix) {
+    this.start(this.size, labelPrefix);
   }
 
   get isFull() {

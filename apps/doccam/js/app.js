@@ -64,6 +64,7 @@ const flipBtn = document.getElementById('flip-btn');
 const resetViewBtn = document.getElementById('reset-view-btn');
 
 const compareStatus = document.getElementById('compare-status');
+const labelPrefixInput = document.getElementById('label-prefix-input');
 const compareStartBtn = document.getElementById('compare-start-btn');
 const slotLabelEditor = document.getElementById('slot-label-editor');
 const slotLabelInput = document.getElementById('slot-label-input');
@@ -337,7 +338,7 @@ GRID_PRESETS.forEach((n) => {
   b.textContent = String(n);
   b.addEventListener('click', () => {
     if (compositor.isFrozen) toggleFreeze();
-    grid.start(n);
+    grid.start(n, labelPrefixInput.value.trim());
     uiState.enterComparison();
     compareModal.hidden = true;
     refreshComparePanel();
@@ -397,7 +398,7 @@ function refreshHud() {
     hudPrimaryBtn.textContent = 'New Set';
     hudPrimaryBtn.onclick = () => {
       if (compositor.isFrozen) toggleFreeze();
-      grid.newSet();
+      grid.newSet(labelPrefixInput.value.trim());
       uiState.setComparisonComplete(false);
       refreshComparePanel();
       refreshHud();
