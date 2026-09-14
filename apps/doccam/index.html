@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Doc Cam — Classroom Document Camera</title>
+<meta name="description" content="Lightweight browser document camera for classroom instruction: live projection, recording, and side-by-side comparison." />
+<link rel="stylesheet" href="css/styles.css" />
+<!-- jsPDF is used only for the optional "Export Comparison → PDF" button.
+     Everything else works fully offline / without this script. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.2/jspdf.umd.min.js" defer></script>
+</head>
+<body>
+<div id="app" class="app">
+
+  <video id="camera-video" class="source-video" autoplay muted playsinline></video>
+
+  <main id="stage-wrap" class="stage-wrap">
+    <canvas id="stage"></canvas>
+
+    <div id="frozen-badge" class="badge badge-frozen" hidden>❄ FROZEN</div>
+    <div id="rec-badge" class="badge badge-rec" hidden><span class="dot"></span><span id="rec-time">00:00</span></div>
+    <div id="capture-flash" class="capture-flash" hidden></div>
+
+    <div id="capture-hud" class="hud" hidden>
+      <span id="capture-hud-text">Capturing 1 of 4</span>
+      <button id="capture-hud-primary" class="link-btn">Exit Comparison</button>
+      <button id="capture-hud-secondary" class="link-btn" hidden>Exit</button>
+    </div>
+
+    <div id="last-capture" class="last-capture" hidden>
+      <img id="last-capture-img" alt="Last capture" />
+      <div class="last-capture-actions">
+        <button id="last-capture-export" class="mini-btn">Export</button>
+        <button id="last-capture-dismiss" class="mini-btn">✕</button>
+      </div>
+    </div>
+
+    <div id="toast" class="toast" hidden></div>
+
+    <button id="exit-presentation" class="exit-presentation" hidden title="Exit Presentation Mode (Esc)">✕ Exit Presentation</button>
+
+    <div id="permission-gate" class="gate">
+      <div class="gate-card">
+        <h1>Document Camera</h1>
+        <p>Connect a USB document camera, then start it below.</p>
+        <button id="start-camera-btn" class="gate-start-btn">Start Document Camera</button>
+        <p id="gate-error" class="gate-error" hidden></p>
+      </div>
+    </div>
+
+    <div id="compare-size-modal" class="modal" hidden>
+      <div class="modal-card">
+        <h2>Compare how many images?</h2>
+        <div class="grid-size-options" id="grid-size-options"></div>
+        <button id="compare-cancel" class="link-btn">Cancel</button>
+      </div>
+    </div>
+
+    <div id="error-banner" class="error-banner" hidden></div>
+  </main>
+
+  <aside id="toolbar" class="toolbar">
+    <button data-panel="camera" class="tbtn" title="Camera settings">
+      <span class="ic">📷</span><span class="lbl">Camera</span>
+    </button>
+    <button data-action="freeze" class="tbtn" title="Freeze / Resume (Space)">
+      <span class="ic">❄</span><span class="lbl" id="freeze-label">Freeze</span>
+    </button>
+    <button data-action="capture" class="tbtn primary" title="Capture (C)">
+      <span class="ic">⬤</span><span class="lbl">Capture</span>
+    </button>
+    <button data-panel="compare" class="tbtn" title="Compare">
+      <span class="ic">▦</span><span class="lbl">Compare</span>
+    </button>
+    <button data-panel="annotate" class="tbtn" title="Annotate">
+      <span class="ic">✏</span><span class="lbl">Annotate</span>
+    </button>
+    <button data-panel="record" class="tbtn" title="Record (R)">
+      <span class="ic">⏺</span><span class="lbl" id="record-label">Record</span>
+    </button>
+    <button data-action="fullscreen" class="tbtn" title="Fullscreen (F)">
+      <span class="ic">⛶</span><span class="lbl">Fullscreen</span>
+    </button>
+    <button data-action="present" class="tbtn" title="Presentation Mode (P)">
+      <span class="ic">🖥</span><span class="lbl">Present</span>
+    </button>
+
+    <div class="tb-spacer"></div>
+
+    <button data-panel="export" class="tbtn" title="Export">
+      <span class="ic">⬇</span><span class="lbl">Export</span>
+    </button>
+    <button id="collapse-toggle" class="tbtn collapse-btn" title="Collapse toolbar">
+      <span class="ic">»</span>
+    </button>
+  </aside>
+
+  <div id="panel-camera" class="panel" hidden>
+    <h3>Camera</h3>
+    <label class="field">
+      <span>Camera</span>
+      <select id="camera-select"></select>
+    </label>
+    <div class="field-row">
+      <span>Resolution</span>
+      <span id="resolution-info" class="muted">—</span>
+    </div>
+    <label class="field">
+      <span>Zoom</span>
+      <input id="zoom-slider" type="range" min="1" max="4" step="0.05" value="1" />
+    </label>
+    <label class="field">
+      <span>Brightness</span>
+      <input id="brightness-slider" type="range" min="50" max="150" step="1" value="100" />
+    </label>
+    <label class="field">
+      <span>Contrast</span>
+      <input id="contrast-slider" type="range" min="50" max="150" step="1" value="100" />
+    </label>
+    <div class="btn-row">
+      <button id="rotate-btn" class="pill-btn">⟳ Rotate</button>
+      <button id="mirror-btn" class="pill-btn">⇋ Mirror</button>
+      <button id="flip-btn" class="pill-btn">⇅ Flip</button>
+    </div>
+    <button id="reset-view-btn" class="pill-btn full">Reset View</button>
+  </div>
+
+  <div id="panel-compare" class="panel" hidden>
+    <h3>Compare</h3>
+    <p class="muted" id="compare-status">No comparison active.</p>
+    <button id="compare-start-btn" class="pill-btn full">Start Comparison…</button>
+    <div id="slot-label-editor" class="slot-label-editor" hidden>
+      <span>Rename selected image</span>
+      <input id="slot-label-input" type="text" maxlength="40" placeholder="Label" />
+      <button id="slot-delete-btn" class="pill-btn">Delete Image</button>
+    </div>
+  </div>
+
+  <div id="panel-annotate" class="panel" hidden>
+    <h3>Annotate</h3>
+    <div class="btn-row wrap">
+      <button data-tool="pen" class="pill-btn tool-btn active">Pen</button>
+      <button data-tool="highlighter" class="pill-btn tool-btn">Highlighter</button>
+      <button data-tool="line" class="pill-btn tool-btn">Line</button>
+      <button data-tool="arrow" class="pill-btn tool-btn">Arrow</button>
+      <button data-tool="rect" class="pill-btn tool-btn">Rectangle</button>
+      <button data-tool="ellipse" class="pill-btn tool-btn">Ellipse</button>
+      <button data-tool="text" class="pill-btn tool-btn">Text</button>
+      <button data-tool="eraser" class="pill-btn tool-btn">Eraser</button>
+    </div>
+    <label class="field">
+      <span>Color</span>
+      <input id="color-picker" type="color" value="#ff3b30" />
+    </label>
+    <label class="field">
+      <span>Thickness</span>
+      <input id="thickness-slider" type="range" min="10" max="100" step="5" value="35" />
+    </label>
+    <div class="btn-row">
+      <button id="undo-btn" class="pill-btn">Undo</button>
+      <button id="redo-btn" class="pill-btn">Redo</button>
+      <button id="clear-annotations-btn" class="pill-btn">Clear</button>
+    </div>
+  </div>
+
+  <div id="panel-record" class="panel" hidden>
+    <h3>Record</h3>
+    <label class="field">
+      <span>Microphone</span>
+      <select id="mic-select"></select>
+    </label>
+    <label class="field">
+      <span>Quality</span>
+      <select id="resolution-select">
+        <option value="1080p" selected>1080p — recommended</option>
+        <option value="1440p">1440p — Advanced</option>
+        <option value="4k">4K — Advanced</option>
+      </select>
+    </label>
+    <p id="quality-warning" class="muted small" hidden>
+      Higher resolutions need more CPU/GPU, RAM, USB bandwidth, and storage. Use only on capable hardware.
+    </p>
+    <div id="record-stats" class="muted small" hidden></div>
+    <button id="record-toggle-btn" class="pill-btn full primary">Start Recording</button>
+  </div>
+
+  <div id="panel-export" class="panel" hidden>
+    <h3>Export</h3>
+    <p class="muted small">Export Image</p>
+    <div class="btn-row">
+      <button id="export-image-png" class="pill-btn">PNG</button>
+      <button id="export-image-jpeg" class="pill-btn">JPEG</button>
+    </div>
+    <p class="muted small">Export Comparison</p>
+    <div class="btn-row wrap">
+      <button id="export-cmp-png" class="pill-btn">PNG</button>
+      <button id="export-cmp-jpeg" class="pill-btn">JPEG</button>
+      <button id="export-cmp-pdf" class="pill-btn">PDF</button>
+    </div>
+  </div>
+
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
