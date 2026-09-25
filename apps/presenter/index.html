@@ -19,6 +19,7 @@
       --accent:    #b5762a;
       --amber:     #b45309;
       --danger:    #b3261e;
+      --success:   #1e7a34;
       --brass:     #c9a24b;
       --wood-light:#7a5a3f;
       --wood-mid:  #5c4030;
@@ -226,25 +227,32 @@
     #presenter-toggle-btn.nav-on:hover { background: var(--brass); }
     #autofit-toggle-btn.nav-on { color: #1b1208; background: var(--brass); border-color: var(--brass); }
     #autofit-toggle-btn.nav-on:hover { background: var(--brass); }
-    #no-chromebooks-toggle-btn.nav-on { color: #fff; background: var(--danger); border-color: var(--danger); }
-    #no-chromebooks-toggle-btn.nav-on:hover { background: var(--danger); }
+    #computers-toggle-btn.state-needed { color: #fff; background: var(--success); border-color: var(--success); }
+    #computers-toggle-btn.state-needed:hover { background: var(--success); }
+    #computers-toggle-btn.state-away { color: #fff; background: var(--danger); border-color: var(--danger); }
+    #computers-toggle-btn.state-away:hover { background: var(--danger); }
 
-    /* On-screen "No Chromebooks" signal — a child of #screen-frame (not
-       #module-nav), so it stays visible in presenter-view too: the
+    /* On-screen "Computers Needed / Away" banner — a child of #screen-frame
+       (not #module-nav), so it stays visible in presenter-view too: the
        projector/second-screen popup is the whole point of this signal,
        teacher-facing controls are not. */
-    #no-chromebooks-badge {
+    #computers-banner {
       position: absolute; top: 14px; right: 14px; z-index: 25;
-      display: none; align-items: center; gap: 10px;
-      background: var(--danger); color: #fff; padding: 10px 16px; border-radius: 8px;
-      font-family: var(--font-label); font-weight: 700; font-size: 1rem; letter-spacing: 1px;
-      text-transform: uppercase; box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      display: none; align-items: center; gap: 12px;
+      color: #fff; padding: 10px 18px 10px 14px; border-radius: 10px;
+      font-family: var(--font-sans); box-shadow: 0 8px 22px rgba(0,0,0,0.5);
       border: 2px solid rgba(255,255,255,0.35); pointer-events: none;
     }
-    #no-chromebooks-badge.on { display: flex; }
-    #no-chromebooks-badge svg { width: 26px; height: 26px; flex-shrink: 0; }
-    body.presenter-view #no-chromebooks-badge { top: 20px; right: 20px; font-size: 1.3rem; padding: 14px 22px; }
-    body.presenter-view #no-chromebooks-badge svg { width: 34px; height: 34px; }
+    #computers-banner.state-needed, #computers-banner.state-away { display: flex; }
+    #computers-banner.state-needed { background: linear-gradient(180deg, #2fa84a, #1c6e30); }
+    #computers-banner.state-away { background: linear-gradient(180deg, #d1352b, #8f1f18); }
+    #computers-banner svg { width: 32px; height: 32px; flex-shrink: 0; }
+    #computers-banner-title { font-family: var(--font-label); font-weight: 700; font-size: 1rem; letter-spacing: 0.5px; text-transform: uppercase; line-height: 1.2; }
+    #computers-banner-subtitle { font-size: 0.78rem; opacity: 0.92; line-height: 1.2; margin-top: 2px; }
+    body.presenter-view #computers-banner { top: 20px; right: 20px; padding: 14px 24px 14px 18px; }
+    body.presenter-view #computers-banner svg { width: 42px; height: 42px; }
+    body.presenter-view #computers-banner-title { font-size: 1.3rem; }
+    body.presenter-view #computers-banner-subtitle { font-size: 1rem; }
     #preview-banner-chip {
       color: #ffffff; background: var(--danger); font-weight: bold; font-size: 0.66rem;
       padding: 4px 6px; border-radius: 3px; letter-spacing: 0.5px; text-transform: uppercase;
@@ -546,7 +554,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (F)">⛶</button>
       <button id="autofit-toggle-btn" onclick="toggleAutofit()" title="Shrink goal text to fit instead of scrolling">FIT: ON</button>
       <button id="presenter-toggle-btn" onclick="togglePresenterWindow()" title="Open/close a controls-free display window for your projector or second screen">🖥 DISPLAY: OFF</button>
-      <button id="no-chromebooks-toggle-btn" onclick="toggleNoChromebooks()" title="Show/hide an on-screen 'No Chromebooks' signal — visible in the DISPLAY window too">🚫 SIGNAL: OFF</button>
+      <button id="computers-toggle-btn" onclick="cycleComputersSignal()" title="Cycle an on-screen Computers Needed/Away banner — visible in the DISPLAY window too">💻 SIGNAL: OFF</button>
       <span id="preview-day-group" style="display:flex; align-items:center; gap:4px; margin-left:4px; padding-left:6px; border-left:1px solid rgba(255,255,255,0.2);">
         <span id="preview-banner-chip" style="display:none;">⚠ PREVIEWING <span id="preview-day-name"></span></span>
         <select id="preview-day-select" onchange="setPreviewDay(this.value)" title="Preview a day-synced module/bellwork as a different weekday, to confirm a planner Sync worked without waiting for that day to arrive. Resets to Today whenever this page reloads.">
@@ -579,14 +587,12 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     </div>
 
     <div id="screen-frame">
-      <div id="no-chromebooks-badge">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <rect x="4" y="4" width="16" height="11" rx="1.5"/>
-          <path d="M2 19h20l-2-3H4z"/>
-          <circle cx="12" cy="12" r="10.5"/>
-          <line x1="4" y1="4" x2="20" y2="20"/>
-        </svg>
-        <span>No Chromebooks</span>
+      <div id="computers-banner">
+        <svg id="computers-banner-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"></svg>
+        <div>
+          <div id="computers-banner-title"></div>
+          <div id="computers-banner-subtitle"></div>
+        </div>
       </div>
       <div id="goal-header">
         <div class="goal-column">
@@ -1033,26 +1039,47 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       applyAutofitSetting();
     }
 
-    // --- "NO CHROMEBOOKS" SIGNAL ---
-    // A simple on/off classroom sign, not tied to any module/content —
-    // persists per-browser and syncs to the DISPLAY popup the same way
-    // as autofit/zoom/brightness/volume (see the 'storage' listener below).
-    function isNoChromebooksOn() {
-      return localStorage.getItem('classroom_no_chromebooks') === 'on';
+    // --- "COMPUTERS NEEDED / AWAY" SIGNAL ---
+    // A 3-state classroom sign (off -> needed -> away -> off), not tied to
+    // any module/content — persists per-browser and syncs to the DISPLAY
+    // popup the same way as autofit/zoom/brightness/volume (see the
+    // 'storage' listener below).
+    const COMPUTERS_SIGNAL_STATES = ['off', 'needed', 'away'];
+    const COMPUTERS_SIGNAL_ICONS = {
+      needed: '<path d="M3 5.5c0-.8.6-1.5 1.5-1.5h11c.8 0 1.5.7 1.5 1.5v8H3z"/><path d="M1.5 15.5h16l1.5 2.5h-19z"/><line x1="16.5" y1="3" x2="19" y2="1"/><line x1="19" y1="6.5" x2="22" y2="6.5"/><line x1="16.5" y1="9.5" x2="19" y2="11.5"/>',
+      away: '<rect x="4" y="4" width="16" height="11" rx="1.5"/><path d="M2 19h20l-2-3H4z"/><circle cx="12" cy="12" r="10.5"/><line x1="4" y1="4" x2="20" y2="20"/>'
+    };
+    const COMPUTERS_SIGNAL_TEXT = {
+      needed: { label: 'Computers Needed', sub: 'Students may take out Chromebooks.' },
+      away: { label: 'Computers Away', sub: 'Please put Chromebooks away.' }
+    };
+    function getComputersSignal() {
+      const v = localStorage.getItem('classroom_computers_signal');
+      return COMPUTERS_SIGNAL_STATES.includes(v) ? v : 'off';
     }
-    function applyNoChromebooksSetting() {
-      const on = isNoChromebooksOn();
-      const btn = document.getElementById('no-chromebooks-toggle-btn');
+    function applyComputersSignalSetting() {
+      const state = getComputersSignal();
+      const btn = document.getElementById('computers-toggle-btn');
       if (btn) {
-        btn.textContent = on ? '🚫 SIGNAL: ON' : '🚫 SIGNAL: OFF';
-        btn.classList.toggle('nav-on', on);
+        btn.textContent = '💻 SIGNAL: ' + state.toUpperCase();
+        btn.classList.toggle('state-needed', state === 'needed');
+        btn.classList.toggle('state-away', state === 'away');
       }
-      const badge = document.getElementById('no-chromebooks-badge');
-      if (badge) badge.classList.toggle('on', on);
+      const banner = document.getElementById('computers-banner');
+      if (banner) {
+        banner.classList.toggle('state-needed', state === 'needed');
+        banner.classList.toggle('state-away', state === 'away');
+        if (state !== 'off') {
+          document.getElementById('computers-banner-icon').innerHTML = COMPUTERS_SIGNAL_ICONS[state];
+          document.getElementById('computers-banner-title').textContent = COMPUTERS_SIGNAL_TEXT[state].label;
+          document.getElementById('computers-banner-subtitle').textContent = COMPUTERS_SIGNAL_TEXT[state].sub;
+        }
+      }
     }
-    function toggleNoChromebooks() {
-      localStorage.setItem('classroom_no_chromebooks', isNoChromebooksOn() ? 'off' : 'on');
-      applyNoChromebooksSetting();
+    function cycleComputersSignal() {
+      const next = COMPUTERS_SIGNAL_STATES[(COMPUTERS_SIGNAL_STATES.indexOf(getComputersSignal()) + 1) % COMPUTERS_SIGNAL_STATES.length];
+      localStorage.setItem('classroom_computers_signal', next);
+      applyComputersSignalSetting();
     }
 
     function toggleFullscreen() {
@@ -2214,8 +2241,8 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       if (e.key === 'classroom_volume') {
         applyVolumeSetting();
       }
-      if (e.key === 'classroom_no_chromebooks') {
-        applyNoChromebooksSetting();
+      if (e.key === 'classroom_computers_signal') {
+        applyComputersSignalSetting();
       }
     });
 
@@ -2224,7 +2251,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     applyZoomModeSetting();
     applyBrightnessSetting();
     applyVolumeSetting();
-    applyNoChromebooksSetting();
+    applyComputersSignalSetting();
     setSourceType('slides');
 
     setupDragKnob(document.getElementById('brightness-knob'), { min: 60, max: 140, step: 5, get: getBrightness, set: setBrightness });
