@@ -226,6 +226,25 @@
     #presenter-toggle-btn.nav-on:hover { background: var(--brass); }
     #autofit-toggle-btn.nav-on { color: #1b1208; background: var(--brass); border-color: var(--brass); }
     #autofit-toggle-btn.nav-on:hover { background: var(--brass); }
+    #no-chromebooks-toggle-btn.nav-on { color: #fff; background: var(--danger); border-color: var(--danger); }
+    #no-chromebooks-toggle-btn.nav-on:hover { background: var(--danger); }
+
+    /* On-screen "No Chromebooks" signal — a child of #screen-frame (not
+       #module-nav), so it stays visible in presenter-view too: the
+       projector/second-screen popup is the whole point of this signal,
+       teacher-facing controls are not. */
+    #no-chromebooks-badge {
+      position: absolute; top: 14px; right: 14px; z-index: 25;
+      display: none; align-items: center; gap: 10px;
+      background: var(--danger); color: #fff; padding: 10px 16px; border-radius: 8px;
+      font-family: var(--font-label); font-weight: 700; font-size: 1rem; letter-spacing: 1px;
+      text-transform: uppercase; box-shadow: 0 6px 18px rgba(0,0,0,0.45);
+      border: 2px solid rgba(255,255,255,0.35); pointer-events: none;
+    }
+    #no-chromebooks-badge.on { display: flex; }
+    #no-chromebooks-badge svg { width: 26px; height: 26px; flex-shrink: 0; }
+    body.presenter-view #no-chromebooks-badge { top: 20px; right: 20px; font-size: 1.3rem; padding: 14px 22px; }
+    body.presenter-view #no-chromebooks-badge svg { width: 34px; height: 34px; }
     #preview-banner-chip {
       color: #ffffff; background: var(--danger); font-weight: bold; font-size: 0.66rem;
       padding: 4px 6px; border-radius: 3px; letter-spacing: 0.5px; text-transform: uppercase;
@@ -527,6 +546,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       <button id="fullscreen-btn" onclick="toggleFullscreen()" title="Toggle fullscreen (F)">⛶</button>
       <button id="autofit-toggle-btn" onclick="toggleAutofit()" title="Shrink goal text to fit instead of scrolling">FIT: ON</button>
       <button id="presenter-toggle-btn" onclick="togglePresenterWindow()" title="Open/close a controls-free display window for your projector or second screen">🖥 DISPLAY: OFF</button>
+      <button id="no-chromebooks-toggle-btn" onclick="toggleNoChromebooks()" title="Show/hide an on-screen 'No Chromebooks' signal — visible in the DISPLAY window too">🚫 SIGNAL: OFF</button>
       <span id="preview-day-group" style="display:flex; align-items:center; gap:4px; margin-left:4px; padding-left:6px; border-left:1px solid rgba(255,255,255,0.2);">
         <span id="preview-banner-chip" style="display:none;">⚠ PREVIEWING <span id="preview-day-name"></span></span>
         <select id="preview-day-select" onchange="setPreviewDay(this.value)" title="Preview a day-synced module/bellwork as a different weekday, to confirm a planner Sync worked without waiting for that day to arrive. Resets to Today whenever this page reloads.">
@@ -559,6 +579,15 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     </div>
 
     <div id="screen-frame">
+      <div id="no-chromebooks-badge">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="4" y="4" width="16" height="11" rx="1.5"/>
+          <path d="M2 19h20l-2-3H4z"/>
+          <circle cx="12" cy="12" r="10.5"/>
+          <line x1="4" y1="4" x2="20" y2="20"/>
+        </svg>
+        <span>No Chromebooks</span>
+      </div>
       <div id="goal-header">
         <div class="goal-column">
           <h3>Level Up Goal</h3>
@@ -1002,6 +1031,28 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       const on = isAutofitEnabled();
       localStorage.setItem('classroom_autofit', on ? 'off' : 'on');
       applyAutofitSetting();
+    }
+
+    // --- "NO CHROMEBOOKS" SIGNAL ---
+    // A simple on/off classroom sign, not tied to any module/content —
+    // persists per-browser and syncs to the DISPLAY popup the same way
+    // as autofit/zoom/brightness/volume (see the 'storage' listener below).
+    function isNoChromebooksOn() {
+      return localStorage.getItem('classroom_no_chromebooks') === 'on';
+    }
+    function applyNoChromebooksSetting() {
+      const on = isNoChromebooksOn();
+      const btn = document.getElementById('no-chromebooks-toggle-btn');
+      if (btn) {
+        btn.textContent = on ? '🚫 SIGNAL: ON' : '🚫 SIGNAL: OFF';
+        btn.classList.toggle('nav-on', on);
+      }
+      const badge = document.getElementById('no-chromebooks-badge');
+      if (badge) badge.classList.toggle('on', on);
+    }
+    function toggleNoChromebooks() {
+      localStorage.setItem('classroom_no_chromebooks', isNoChromebooksOn() ? 'off' : 'on');
+      applyNoChromebooksSetting();
     }
 
     function toggleFullscreen() {
@@ -2163,6 +2214,9 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
       if (e.key === 'classroom_volume') {
         applyVolumeSetting();
       }
+      if (e.key === 'classroom_no_chromebooks') {
+        applyNoChromebooksSetting();
+      }
     });
 
     migrateData();
@@ -2170,6 +2224,7 @@ https://docs.google.com/presentation/d/.../edit" style="min-height: 90px;"></tex
     applyZoomModeSetting();
     applyBrightnessSetting();
     applyVolumeSetting();
+    applyNoChromebooksSetting();
     setSourceType('slides');
 
     setupDragKnob(document.getElementById('brightness-knob'), { min: 60, max: 140, step: 5, get: getBrightness, set: setBrightness });
